@@ -105,6 +105,26 @@ test_that("stage_local_robocopy() calls robocopy() once per source directory, no
   expect_equal(call_count, 2)
 })
 
+test_that("stage_local_robocopy() groups files in the same directory into one call, even referenced with different case", {
+  # Windows paths are case-insensitive, so this can only be meaningfully
+  # checked on a real Windows machine -- not by mocking, which wouldn't
+  # actually exercise the platform behavior this is about.
+  skip_if_not(robocopy_available())
+
+  src <- withr::local_tempdir()
+  writeLines("a", file.path(src, "a.txt"))
+  writeLines("b", file.path(src, "b.txt"))
+
+  files <- c(file.path(src, "a.txt"), file.path(toupper(src), "b.txt"))
+
+  call_count <- 0
+  local_mocked_bindings(robocopy = function(...) call_count <<- call_count + 1)
+
+  stage_local_robocopy(files, withr::local_tempdir())
+
+  expect_equal(call_count, 1)
+})
+
 test_that("sfs_stage_local() copies files and returns local paths", {
   skip_if_not(robocopy_available())
 

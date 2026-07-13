@@ -131,7 +131,13 @@ check_no_duplicate_basenames <- function(files) {
 }
 
 # One robocopy() call per source directory, rather than one per file.
+# Paths are normalized before grouping (not just for the basenames, which
+# are unaffected) so that mixed case or slash style for files actually in
+# the same directory -- Windows paths are case-insensitive -- still group
+# into a single call instead of spuriously splitting into more than
+# necessary.
 stage_local_robocopy <- function(files, dir) {
+  files <- normalizePath(files, mustWork = FALSE)
   local_paths <- file.path(dir, basename(files))
   groups <- split(files, dirname(files))
 
