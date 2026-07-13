@@ -41,6 +41,24 @@ test_that("sfs_dir_info() errors if both regexp and glob are supplied", {
   )
 })
 
+test_that("validate_dir_info_type() accepts 'any' and known types, rejects unknown ones", {
+  expect_equal(validate_dir_info_type("any"), "any")
+  expect_equal(validate_dir_info_type(c("file", "directory")), c("file", "directory"))
+  expect_error(validate_dir_info_type("nonsense"), class = "sharefs_error_bad_type")
+  # A mix of valid and invalid values should still error.
+  expect_error(validate_dir_info_type(c("file", "nonsense")), class = "sharefs_error_bad_type")
+})
+
+test_that("sfs_dir_info() defaults path to the current working directory", {
+  dir <- withr::local_tempdir()
+  file.create(file.path(dir, "a.txt"))
+  withr::local_dir(dir)
+
+  info <- sfs_dir_info()
+
+  expect_equal(basename(info$path), "a.txt")
+})
+
 # --- filter_dir_info() (pure logic: no filesystem or PowerShell involved) ---
 # type/glob/regexp/invert filtering, and the directory-size-0 override, all
 # live here, backend-agnostically -- so they're tested here directly against
@@ -94,6 +112,21 @@ test_that("filter_dir_info() invert = TRUE flips the match", {
   expect_equal(filter_dir_info(info, "any", "[.]csv$", TRUE)$path, "b.txt")
 })
 
+test_that("filter_dir_info() accepts a vector of multiple types", {
+  info <- make_info(c("a", "b", "c"), c("file", "directory", "symlink"))
+  result <- filter_dir_info(info, c("file", "symlink"), NULL, FALSE)
+  expect_setequal(result$path, c("a", "c"))
+})
+
+test_that("filter_dir_info() passes ... through to grepl (e.g. ignore.case)", {
+  info <- make_info(c("A.CSV", "b.txt"), "file")
+  expect_equal(
+    filter_dir_info(info, "any", "[.]csv$", FALSE, ignore.case = TRUE)$path,
+    "A.CSV"
+  )
+  expect_equal(nrow(filter_dir_info(info, "any", "[.]csv$", FALSE)), 0)
+})
+
 # --- fs backend (no PowerShell involved) ------------------------------------
 
 test_that("dir_info_fs() all = FALSE excludes hidden files, all = TRUE includes them", {
@@ -108,6 +141,30 @@ test_that("dir_info_fs() all = FALSE excludes hidden files, all = TRUE includes 
     basename(all_info$path[all_info$type == "file"]),
     c(".hidden", "visible.txt")
   )
+})
+
+test_that("dir_info_fs() respects recurse", {
+  dir <- withr::local_tempdir()
+  subdir <- file.path(dir, "sub")
+  dir.create(subdir)
+  file.create(file.path(dir, "top.txt"))
+  file.create(file.path(subdir, "nested.txt"))
+
+  top_only <- dir_info_fs(dir, all = FALSE, recurse = FALSE)
+  expect_equal(basename(top_only$path[top_only$type == "file"]), "top.txt")
+
+  recursive <- dir_info_fs(dir, all = FALSE, recurse = TRUE)
+  expect_setequal(
+    basename(recursive$path[recursive$type == "file"]),
+    c("top.txt", "nested.txt")
+  )
+})
+
+test_that("dir_info_fs() returns the expected column set", {
+  dir <- withr::local_tempdir()
+  file.create(file.path(dir, "a.txt"))
+
+  expect_equal(names(dir_info_fs(dir, all = FALSE, recurse = FALSE)), dir_info_columns())
 })
 
 test_that("sfs_dir_info() falls back to fs with a warning if powershell fails", {
@@ -138,6 +195,7 @@ test_that("sfs_dir_info() lists real files and directories with correct metadata
   writeLines("hello", file.path(dir1, "a.txt"))
   dir.create(file.path(dir1, "subdir"))
   file.create(file.path(dir2, "b.txt"))
+  expected_mtime <- file.info(file.path(dir1, "a.txt"))$mtime
 
   info <- sfs_dir_info(c(dir1, dir2)) # path vectorization: one real call
 
@@ -151,6 +209,11 @@ test_that("sfs_dir_info() lists real files and directories with correct metadata
   file_row <- info[basename(info$path) == "a.txt", ]
   expect_equal(as.character(file_row$type), "file")
   expect_true(file_row$size > 0)
+  # Explicit second-level timestamp formatting in the powershell path
+  # means sub-second precision isn't preserved; a small tolerance covers
+  # that (and any filesystem rounding) without making the check
+  # meaningless.
+  expect_true(abs(as.numeric(file_row$modification_time - expected_mtime)) < 2)
 
   dir_row <- info[basename(info$path) == "subdir", ]
   expect_equal(as.character(dir_row$type), "directory")
@@ -210,6 +273,76 @@ test_that("dir_info_powershell() batches multiple directories and classifies fil
   expect_setequal(basename(info$path), c("a.txt", "subdir", "b.txt"))
   expect_equal(as.character(info$type[basename(info$path) == "a.txt"]), "file")
   expect_equal(as.character(info$type[basename(info$path) == "subdir"]), "directory")
+})
+
+test_that("dir_info_powershell() all = FALSE excludes attribute-hidden files, all = TRUE includes them", {
+  skip_if_not(sfs_powershell_available())
+
+  dir <- withr::local_tempdir()
+  hidden <- file.path(dir, "hidden.txt")
+  file.create(hidden)
+  file.create(file.path(dir, "visible.txt"))
+  # Windows hides files via the Hidden attribute, not a dot-prefixed
+  # name, so it has to be set explicitly for -Force to have anything to
+  # reveal.
+  attrib_status <- suppressWarnings(
+    system2("attrib", c("+H", shQuote(hidden)), stdout = FALSE, stderr = FALSE)
+  )
+  skip_if_not(identical(attrib_status, 0L), "couldn't set the Hidden attribute")
+
+  default_info <- dir_info_powershell(dir, all = FALSE, recurse = FALSE)
+  all_info <- dir_info_powershell(dir, all = TRUE, recurse = FALSE)
+
+  expect_false("hidden.txt" %in% basename(default_info$path))
+  expect_true("hidden.txt" %in% basename(all_info$path))
+})
+
+test_that("dir_info_powershell() respects recurse", {
+  skip_if_not(sfs_powershell_available())
+
+  dir <- withr::local_tempdir()
+  subdir <- file.path(dir, "sub")
+  dir.create(subdir)
+  file.create(file.path(dir, "top.txt"))
+  file.create(file.path(subdir, "nested.txt"))
+
+  top_only <- dir_info_powershell(dir, all = FALSE, recurse = FALSE)
+  expect_equal(basename(top_only$path[top_only$type == "file"]), "top.txt")
+
+  recursive <- dir_info_powershell(dir, all = FALSE, recurse = TRUE)
+  expect_setequal(
+    basename(recursive$path[recursive$type == "file"]),
+    c("top.txt", "nested.txt")
+  )
+})
+
+test_that("dir_info_powershell() correctly parses file names containing commas", {
+  skip_if_not(sfs_powershell_available())
+
+  dir <- withr::local_tempdir()
+  file.create(file.path(dir, "a,b.txt")) # commas are legal in Windows filenames
+
+  info <- dir_info_powershell(dir, all = FALSE, recurse = FALSE)
+
+  expect_equal(basename(info$path), "a,b.txt")
+})
+
+test_that("sfs_dir_info() identifies symlinks", {
+  dir <- withr::local_tempdir()
+  target <- file.path(dir, "target.txt")
+  link <- file.path(dir, "link.txt")
+  writeLines("hello", target)
+
+  created <- tryCatch(
+    isTRUE(file.symlink(target, link)),
+    error = function(e) FALSE,
+    warning = function(w) FALSE
+  )
+  skip_if_not(created, "couldn't create a symlink (may need admin rights or Developer Mode)")
+
+  info <- sfs_dir_info(dir, type = "symlink")
+
+  expect_equal(basename(info$path), "link.txt")
 })
 
 # --- sfs_dir_ls() -- mocked (a thin wrapper; no need to re-run a real

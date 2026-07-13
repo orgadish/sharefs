@@ -2,6 +2,29 @@ test_that("sfs_stage_local() requires at least one file", {
   expect_error(sfs_stage_local(character(0)), class = "sharefs_error_no_files")
 })
 
+test_that("is_dir_info_table() recognizes a data.frame with the 3 required columns", {
+  df <- data.frame(path = "a", size = 1, modification_time = Sys.time())
+  expect_true(is_dir_info_table(df))
+})
+
+test_that("is_dir_info_table() accepts extra columns beyond the required 3", {
+  df <- data.frame(path = "a", size = 1, modification_time = Sys.time(), type = "file")
+  expect_true(is_dir_info_table(df))
+})
+
+test_that("is_dir_info_table() rejects a data.frame missing any required column", {
+  now <- Sys.time()
+  expect_false(is_dir_info_table(data.frame(path = "a", size = 1)))
+  expect_false(is_dir_info_table(data.frame(path = "a", modification_time = now)))
+  expect_false(is_dir_info_table(data.frame(size = 1, modification_time = now)))
+})
+
+test_that("is_dir_info_table() rejects non-data.frame input", {
+  expect_false(is_dir_info_table(c("a", "b")))
+  expect_false(is_dir_info_table(list(path = "a", size = 1, modification_time = Sys.time())))
+  expect_false(is_dir_info_table(NULL))
+})
+
 test_that("sfs_stage_local() requires existing files", {
   expect_error(
     sfs_stage_local(tempfile()),
@@ -60,6 +83,26 @@ test_that("stage_local_robocopy() propagates a robocopy() failure", {
     stage_local_robocopy(f, withr::local_tempdir()),
     class = "sharefs_error_robocopy_failed"
   )
+})
+
+test_that("stage_local_robocopy() calls robocopy() once per source directory, not once per file", {
+  call_count <- 0
+  local_mocked_bindings(
+    robocopy = function(...) {
+      call_count <<- call_count + 1
+    }
+  )
+
+  dir1 <- withr::local_tempdir()
+  dir2 <- withr::local_tempdir()
+  files <- c(
+    file.path(dir1, c("a.txt", "b.txt")),
+    file.path(dir2, "c.txt")
+  )
+
+  stage_local_robocopy(files, withr::local_tempdir())
+
+  expect_equal(call_count, 2)
 })
 
 test_that("sfs_stage_local() copies files and returns local paths", {
@@ -158,4 +201,18 @@ test_that("sfs_stage_cleanup() requires a staged tibble", {
     sfs_stage_cleanup(data.frame(path = "x")),
     class = "sharefs_error_not_staged"
   )
+})
+
+test_that("sfs_stage_local() errors on a table missing a required column, rather than silently misbehaving", {
+  src <- withr::local_tempdir()
+  f <- file.path(src, "a.txt")
+  file.create(f)
+
+  # Missing modification_time: not recognized as a dir-info-shaped table
+  # by is_dir_info_table(), so it falls through to being treated as the
+  # path vector itself -- which a data.frame is not. Documents that this
+  # fails loudly rather than doing something confusing silently.
+  incomplete <- data.frame(path = f, size = 1, stringsAsFactors = FALSE)
+
+  expect_error(sfs_stage_local(incomplete))
 })

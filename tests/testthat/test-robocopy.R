@@ -206,6 +206,33 @@ test_that("robocopy() maps log_file to a single /LOG: token", {
   expect_true(paste0("/LOG:", shQuote(log_path)) %in% captured)
 })
 
+test_that("robocopy() formats threads/retries/wait_seconds into /MT, /R, /W", {
+  local_mocked_bindings(
+    robocopy_available = function() TRUE
+  )
+  captured <- NULL
+  local_mocked_bindings(
+    system2 = function(command, args, ...) {
+      captured <<- args
+      0L
+    },
+    .package = "base"
+  )
+
+  robocopy(withr::local_tempdir(), withr::local_tempdir())
+  expect_true("/MT:8" %in% captured)
+  expect_true("/R:5" %in% captured)
+  expect_true("/W:2" %in% captured)
+
+  robocopy(
+    withr::local_tempdir(), withr::local_tempdir(),
+    threads = 4, retries = 10, wait_seconds = 1
+  )
+  expect_true("/MT:4" %in% captured)
+  expect_true("/R:10" %in% captured)
+  expect_true("/W:1" %in% captured)
+})
+
 test_that("robocopy() passes ... through as additional raw flags", {
   local_mocked_bindings(
     robocopy_available = function() TRUE
@@ -243,7 +270,7 @@ test_that("robocopy() actually copies files on a real Windows machine", {
   expect_equal(readLines(file.path(dest, "a.txt")), "hello")
 })
 
-test_that("robocopy() can actually mirror/exclude on a real Windows machine", {
+test_that("robocopy() can actually recurse and exclude files on a real Windows machine", {
   skip_if_not(robocopy_available())
 
   src <- withr::local_tempdir()
@@ -256,4 +283,62 @@ test_that("robocopy() can actually mirror/exclude on a real Windows machine", {
   expect_true(result$success)
   expect_true(file.exists(file.path(dest, "keep.txt")))
   expect_false(file.exists(file.path(dest, "skip.tmp")))
+})
+
+test_that("robocopy() with mirror = TRUE really deletes extra files in destination", {
+  skip_if_not(robocopy_available())
+
+  src <- withr::local_tempdir()
+  dest <- withr::local_tempdir()
+  writeLines("keep", file.path(src, "keep.txt"))
+  writeLines("stale", file.path(dest, "stale.txt")) # only in dest, not src
+
+  result <- robocopy(src, dest, mirror = TRUE)
+
+  expect_true(result$success)
+  expect_true(file.exists(file.path(dest, "keep.txt")))
+  expect_false(file.exists(file.path(dest, "stale.txt")))
+})
+
+test_that("robocopy() with move = TRUE really removes source files after copying", {
+  skip_if_not(robocopy_available())
+
+  src <- withr::local_tempdir()
+  dest <- withr::local_tempdir()
+  f <- file.path(src, "a.txt")
+  writeLines("hello", f)
+
+  result <- robocopy(src, dest, move = TRUE)
+
+  expect_true(result$success)
+  expect_true(file.exists(file.path(dest, "a.txt")))
+  expect_false(file.exists(f))
+})
+
+test_that("robocopy() with dry_run = TRUE doesn't actually copy anything", {
+  skip_if_not(robocopy_available())
+
+  src <- withr::local_tempdir()
+  dest <- withr::local_tempdir()
+  writeLines("hello", file.path(src, "a.txt"))
+
+  result <- robocopy(src, dest, dry_run = TRUE)
+
+  expect_true(result$success)
+  expect_false(file.exists(file.path(dest, "a.txt")))
+})
+
+test_that("robocopy() with log_file really writes a log", {
+  skip_if_not(robocopy_available())
+
+  src <- withr::local_tempdir()
+  dest <- withr::local_tempdir()
+  writeLines("hello", file.path(src, "a.txt"))
+  log_path <- file.path(withr::local_tempdir(), "robocopy.log")
+
+  result <- robocopy(src, dest, log_file = log_path)
+
+  expect_true(result$success)
+  expect_true(file.exists(log_path))
+  expect_true(length(readLines(log_path)) > 0)
 })
