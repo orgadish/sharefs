@@ -4,88 +4,69 @@
 \alias{robocopy}
 \title{Run \code{robocopy} to copy files from one directory to another}
 \usage{
-robocopy(source, destination, files = NULL, recurse = FALSE,
-  mirror = FALSE, move = FALSE, exclude_files = NULL,
-  exclude_dirs = NULL, dry_run = FALSE, log_file = NULL,
-  threads = 8, retries = 5, wait_seconds = 2,
-  error_on_failure = TRUE, ...)
+robocopy(
+  source,
+  destination,
+  ...,
+  files = NULL,
+  recurse = FALSE,
+  mirror = FALSE,
+  move = FALSE,
+  exclude_files = NULL,
+  exclude_dirs = NULL,
+  dry_run = FALSE,
+  log_file = NULL,
+  threads = 8,
+  retries = 5,
+  wait_seconds = 2,
+  error_on_failure = TRUE
+)
 }
 \arguments{
 \item{source, destination}{Source and destination directory paths.}
 
-\item{files}{A character vector of file names (not full paths) to
-copy from \code{source}, relative to it. If \code{NULL} (default), copies
-every file directly in \code{source}.}
+\item{...}{Additional raw \code{robocopy} flags (e.g. \code{"/SEC"},
+\code{"/MAXAGE:30"}), appended after the named ones below. Placed right
+after \code{destination} so flags can be passed positionally; everything
+from \code{files} onward must be named as a result.}
+
+\item{files}{File names (not full paths) to copy from \code{source}. If
+\code{NULL} (default), copies every file directly in \code{source}.}
 
 \item{recurse}{Copy subdirectories, including empty ones (\verb{/E}).
-Default \code{FALSE}, matching \code{robocopy}'s own default of copying only
-the files directly in \code{source}. Ignored if \code{mirror = TRUE}, which
-already implies it.}
+Ignored if \code{mirror = TRUE}.}
 
-\item{mirror}{Mirror \code{source} to \code{destination} (\verb{/MIR}): as well as
-copying, deletes files and directories in \code{destination} that no
-longer exist in \code{source}. \strong{Destructive} -- this can delete data
-in \code{destination}. Default \code{FALSE}.}
+\item{mirror}{Mirror \code{source} to \code{destination} (\verb{/MIR}): also deletes
+files in \code{destination} that no longer exist in \code{source}.
+\strong{Destructive.}}
 
 \item{move}{Move rather than copy (\verb{/MOVE}): deletes files from
-\code{source} after they're successfully copied. \strong{Destructive} -- this
-removes data from \code{source}. Default \code{FALSE}.}
+\code{source} after copying. \strong{Destructive.}}
 
-\item{exclude_files, exclude_dirs}{Character vectors of file name /
-directory name patterns to exclude (\verb{/XF}, \verb{/XD}). Wildcards (\code{*},
-\code{?}) are supported, same as \code{robocopy} itself. \code{NULL} (default)
-excludes nothing.}
+\item{exclude_files, exclude_dirs}{File/directory name patterns to
+exclude (\verb{/XF}, \verb{/XD}), wildcards allowed.}
 
-\item{dry_run}{If \code{TRUE}, lists what would be copied/moved/deleted
-without actually doing it (\verb{/L}). Default \code{FALSE}.}
+\item{dry_run}{List what would happen without doing it (\verb{/L}).}
 
-\item{log_file}{A path to write \code{robocopy}'s log to (\verb{/LOG:},
-overwriting any existing file at that path). \code{NULL} (default)
-doesn't write a log file (this wrapper already suppresses
-\code{robocopy}'s normal console output via \verb{/NFL /NDL /NJH /NJS /NP}
-regardless).}
+\item{log_file}{Path to write \code{robocopy}'s log to (\verb{/LOG:}).}
 
-\item{threads}{Thread count for \verb{/MT}. Default \code{8} (matches
-\code{robocopy}'s own default when \verb{/MT} is used without an explicit
-count).}
+\item{threads}{Thread count for \verb{/MT}. Default \code{8}.}
 
-\item{retries, wait_seconds}{Passed to \verb{/R} and \verb{/W}: how many times to
-retry a failed copy, and how many seconds to wait between retries.
-Defaults (\code{5}, \code{2}) are deliberately more patient than \code{robocopy}'s
-own out-of-the-box defaults (\verb{/R} alone defaults to a million
-retries at 30 seconds apart -- not something you want to actually
-hit) without being as unbounded.}
+\item{retries, wait_seconds}{\verb{/R} and \verb{/W}: retry count and wait
+between retries. Defaults (\code{5}, \code{2}) are more patient than
+\code{robocopy}'s own (a million retries at 30s apart).}
 
-\item{error_on_failure}{If \code{TRUE} (default), aborts if the exit code
-indicates failure. If \code{FALSE}, returns the result either way (see
-Value) and lets the caller decide.}
-
-\item{...}{Additional raw \code{robocopy} flags not covered above (e.g.
-\code{"/SEC"}, \code{"/MAXAGE:30"}, \code{"/Z"}), appended after the standard ones.
-Each element becomes one command-line argument.}
+\item{error_on_failure}{If \code{TRUE} (default), aborts on failure. If
+\code{FALSE}, returns the result either way.}
 }
 \value{
-Invisibly, a list with \code{status} (the integer exit code) and
-\code{success} (\code{status < 8}).
+Invisibly, a list with \code{status} (the exit code) and \code{success}
+(\code{status < 8}).
 }
 \description{
-A thin R wrapper around the \code{robocopy} command-line tool: maps R
-arguments to \code{robocopy}'s command-line flags, runs it, and interprets
-its exit code. \code{\link[=stage_local]{stage_local()}} uses this internally, but it's a
-standalone utility -- useful directly if you want \code{robocopy} from R
-without going through the rest of \code{stage_local()}'s file-info
-machinery.
-
-\code{robocopy} has dozens of flags; this exposes the ones people reach
-for most often as named arguments (recursion, mirroring, moving,
-excluding files/directories, dry runs, logging), and passes anything
-else straight through via \code{...}, e.g. \code{robocopy(src, dst, "/SEC")} to
-preserve NTFS permissions, or \code{robocopy(src, dst, "/MAXAGE:30")} to
-only copy files modified in the last 30 days. Run \code{robocopy /?} (or
-see Microsoft's documentation) for the full flag reference.
-
-\code{robocopy} exit codes 0-7 all indicate some form of success (\code{0} =
-nothing needed copying, \code{1} = files copied, etc.); \code{8} and higher
-indicate at least one failure, even after \code{robocopy}'s own retries.
-See \code{robocopy /?} for the meaning of each bit.
+Maps R arguments to \code{robocopy} flags, runs it, and interprets the
+exit code (0-7 = success, 8+ = failure, even after retries). Exposes
+the flags people reach for most often as named arguments; anything
+else can be passed via \code{...}, e.g. \code{robocopy(src, dst, "/SEC")}. See
+\verb{robocopy /?} for the full flag reference.
 }

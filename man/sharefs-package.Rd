@@ -2,8 +2,8 @@
 % Please edit documentation in R/sharefs-package.R
 \docType{package}
 \name{sharefs-package}
+\alias{sharefs}
 \alias{sharefs-package}
-\alias{_PACKAGE}
 \title{sharefs: Fast Filesystem Operations for Network Shares}
 \description{
 Batched alternatives to base R's file listing, metadata, and copy functions, built specifically for reading files off an SMB/CIFS network share (a mapped network drive or UNC path) on Windows, where each individual file operation -- listing a directory, 'stat()'-ing a file, copying a file -- pays a full network round trip. 'sharefs' uses a single 'PowerShell' 'Get-ChildItem' call to list a directory together with file metadata, and 'robocopy' to stage files locally, instead of one call per file. There is no cross-platform speedup to offer -- 'fs' already covers the general case well -- so this package is Windows-only rather than pretending otherwise; see the 'fs' package for the same operations everywhere else.
@@ -14,8 +14,15 @@ Useful links:
   \item \url{https://github.com/orgadish/sharefs}
   \item Report bugs at \url{https://github.com/orgadish/sharefs/issues}
 }
+
 }
 \author{
 \strong{Maintainer}: Or Gadish \email{orgadish@gmail.com} [copyright holder]
+
+Authors:
+\itemize{
+  \item Or Gadish \email{orgadish@gmail.com} [copyright holder]
+}
+
 }
 \keyword{internal}
