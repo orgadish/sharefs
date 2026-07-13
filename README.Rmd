@@ -1,0 +1,66 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-"
+)
+```
+
+# sharefs
+
+<!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![R-CMD-check](https://github.com/orgadish/sharefs/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/orgadish/sharefs/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
+sharefs lists and copies files with minimal network calls -- useful when
+reading from a network share (a mapped drive, a UNC path, an SMB/CIFS
+mount), where listing a directory and `stat()`-ing each file separately
+normally costs one network round trip per file. `sfs_dir_info()` uses a
+single `Get-ChildItem` call instead, and `sfs_stage_local()` copies files
+to local disk (via `robocopy`) before you read them.
+
+sharefs is Windows-only (`OS_type: windows`).
+
+## Installation
+
+```{r, eval = FALSE}
+if (!requireNamespace("remotes")) install.packages("remotes")
+remotes::install_github("orgadish/sharefs")
+```
+
+## Usage
+
+```{r example}
+library(sharefs)
+
+# A UNC path or mapped network drive in practice; a local temp
+# directory here so this example actually runs.
+network_location <- tempfile()
+dir.create(network_location)
+write.csv(data.frame(x = 1:2), file.path(network_location, "a.csv"), row.names = FALSE)
+write.csv(data.frame(x = 3:4), file.path(network_location, "b.csv"), row.names = FALSE)
+
+sfs_dir_info(network_location, glob = "*.csv")
+sfs_dir_ls(network_location, glob = "*.csv")
+```
+
+`sfs_dir_info()`'s columns are a narrower set than `fs::dir_info()`'s --
+see `?sfs_dir_info` for which ones and why.
+
+```{r}
+staged <- sfs_dir_info(network_location, glob = "*.csv") |>
+  sfs_stage_local()
+staged
+
+lapply(staged$local_path, read.csv)
+
+sfs_stage_cleanup(staged)
+unlink(network_location, recursive = TRUE)
+```
