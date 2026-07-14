@@ -45,8 +45,9 @@ A tibble with columns \code{path}, \code{type}, \code{size},
 }
 \description{
 Lists files and metadata in a single network round trip, using
-PowerShell's \code{Get-ChildItem} instead of one \code{stat()} per file. Falls
-back to \code{\link[fs:dir_info]{fs::dir_info()}} if PowerShell isn't available or fails.
+PowerShell's \code{Get-ChildItem} instead of one \code{stat()} per file. Retries
+a few times before falling back to \code{\link[fs:dir_info]{fs::dir_info()}} if PowerShell
+isn't available or fails.
 
 Arguments mirror \code{\link[fs:dir_info]{fs::dir_info()}}. The result has fewer columns,
 though: \code{path}, \code{type}, \code{size}, \code{modification_time}, \code{access_time},

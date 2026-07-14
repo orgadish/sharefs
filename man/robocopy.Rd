@@ -48,7 +48,10 @@ exclude (\verb{/XF}, \verb{/XD}), wildcards allowed.}
 
 \item{dry_run}{List what would happen without doing it (\verb{/L}).}
 
-\item{log_file}{Path to write \code{robocopy}'s log to (\verb{/LOG:}).}
+\item{log_file}{Path to write \code{robocopy}'s log to (\verb{/LOG:}). Unlike
+the default (fully suppressed) console output, a requested log
+includes the file list, directory list, and job header/summary --
+only the per-file progress percentage is always left out.}
 
 \item{threads}{Thread count for \verb{/MT}. Default \code{8}.}
 

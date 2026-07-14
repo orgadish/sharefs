@@ -24,7 +24,10 @@
 #' @param exclude_files,exclude_dirs File/directory name patterns to
 #'   exclude (`/XF`, `/XD`), wildcards allowed.
 #' @param dry_run List what would happen without doing it (`/L`).
-#' @param log_file Path to write `robocopy`'s log to (`/LOG:`).
+#' @param log_file Path to write `robocopy`'s log to (`/LOG:`). Unlike
+#'   the default (fully suppressed) console output, a requested log
+#'   includes the file list, directory list, and job header/summary --
+#'   only the per-file progress percentage is always left out.
 #' @param threads Thread count for `/MT`. Default `8`.
 #' @param retries,wait_seconds `/R` and `/W`: retry count and wait
 #'   between retries. Defaults (`5`, `2`) are more patient than
@@ -35,60 +38,87 @@
 #' @return Invisibly, a list with `status` (the exit code) and `success`
 #'   (`status < 8`).
 #' @export
-robocopy <- function(source, destination, ...,
-                      files = NULL,
-                      recurse = FALSE, mirror = FALSE, move = FALSE,
-                      exclude_files = NULL, exclude_dirs = NULL,
-                      dry_run = FALSE, log_file = NULL,
-                      threads = 8, retries = 5, wait_seconds = 2,
-                      error_on_failure = TRUE) {
-  if (!robocopy_available()) {
-    cli::cli_abort(
-      c(
-        "{.code robocopy} was not found on the {.envvar PATH}.",
-        "i" = "It ships with Windows by default; if it's genuinely
+robocopy <- function(
+   source,
+   destination,
+   ...,
+   files = NULL,
+   recurse = FALSE,
+   mirror = FALSE,
+   move = FALSE,
+   exclude_files = NULL,
+   exclude_dirs = NULL,
+   dry_run = FALSE,
+   log_file = NULL,
+   threads = 8,
+   retries = 5,
+   wait_seconds = 2,
+   error_on_failure = TRUE
+) {
+   if (!robocopy_available()) {
+      cli::cli_abort(
+         c(
+            "{.code robocopy} was not found on the {.envvar PATH}.",
+            "i" = "It ships with Windows by default; if it's genuinely
                missing, this is likely a minimal or locked-down install."
-      ),
-      class = "sharefs_error_robocopy_unavailable"
-    )
-  }
+         ),
+         class = "sharefs_error_robocopy_unavailable"
+      )
+   }
 
-  args <- c(
-    shQuote(source),
-    shQuote(destination),
-    if (!is.null(files)) shQuote(files),
-    if (mirror) "/MIR" else if (recurse) "/E",
-    if (move) "/MOVE",
-    if (!is.null(exclude_files)) c("/XF", shQuote(exclude_files)),
-    if (!is.null(exclude_dirs)) c("/XD", shQuote(exclude_dirs)),
-    if (dry_run) "/L",
-    if (!is.null(log_file)) paste0("/LOG:", shQuote(log_file)),
-    paste0("/MT:", threads),
-    paste0("/R:", retries),
-    paste0("/W:", wait_seconds),
-    "/NFL", "/NDL", "/NJH", "/NJS", "/NP",
-    ...
-  )
+   # /NFL /NDL /NJH /NJS suppress exactly the content a log is meant to
+   # capture (confirmed against a real run: with them always on, a
+   # requested log_file came back essentially empty). They're only
+   # skipped when log_file is NULL, since robocopy's own console output
+   # is discarded either way in that case. /NP (per-file progress
+   # percentage) is pure noise even in a saved log, so it's always
+   # suppressed.
+   quiet_flags <- if (is.null(log_file)) {
+      c("/NFL", "/NDL", "/NJH", "/NJS", "/NP")
+   } else {
+      "/NP"
+   }
 
-  status <- suppressWarnings(
-    system2("robocopy", args, stdout = FALSE, stderr = FALSE)
-  )
-  if (is.na(status)) {
-    status <- 16L # missing exit status treated as failure
-  }
+   args <- c(
+      shQuote(source),
+      shQuote(destination),
+      if (!is.null(files)) shQuote(files),
+      if (mirror) {
+         "/MIR"
+      } else if (recurse) {
+         "/E"
+      },
+      if (move) "/MOVE",
+      if (!is.null(exclude_files)) c("/XF", shQuote(exclude_files)),
+      if (!is.null(exclude_dirs)) c("/XD", shQuote(exclude_dirs)),
+      if (dry_run) "/L",
+      if (!is.null(log_file)) paste0("/LOG:", shQuote(log_file)),
+      paste0("/MT:", threads),
+      paste0("/R:", retries),
+      paste0("/W:", wait_seconds),
+      quiet_flags,
+      ...
+   )
 
-  result <- list(status = status, success = status < 8)
+   status <- suppressWarnings(
+      system2("robocopy", args, stdout = FALSE, stderr = FALSE)
+   )
+   if (is.na(status)) {
+      status <- 16L # missing exit status treated as failure
+   }
 
-  if (error_on_failure && !result$success) {
-    cli::cli_abort(
-      c(
-        "{.code robocopy} failed copying from {.path {source}} to
+   result <- list(status = status, success = status < 8)
+
+   if (error_on_failure && !result$success) {
+      cli::cli_abort(
+         c(
+            "{.code robocopy} failed copying from {.path {source}} to
          {.path {destination}}, even after retrying.",
-        "i" = "Exit code: {status}"
-      ),
-      class = "sharefs_error_robocopy_failed"
-    )
-  }
+            "i" = "Exit code: {status}"
+         ),
+         class = "sharefs_error_robocopy_failed"
+      )
+   }
 
-  invisible(result)
+   invisible(result)
 }

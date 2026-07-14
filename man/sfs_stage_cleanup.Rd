@@ -4,14 +4,26 @@
 \alias{sfs_stage_cleanup}
 \title{Remove a staging directory created by \code{sfs_stage_local()}}
 \usage{
-sfs_stage_cleanup(staged)
+sfs_stage_cleanup(staged, retries = 5, initial_wait_seconds = 0.05)
 }
 \arguments{
 \item{staged}{The tibble returned by \code{\link[=sfs_stage_local]{sfs_stage_local()}}.}
+
+\item{retries, initial_wait_seconds}{How many times to retry, and how
+long to wait before the first retry -- tripling on each subsequent
+one (0.05, 0.15, 0.45, 1.35s for the defaults). Most locks like
+this clear in well under a second, so starting low keeps that
+common case responsive; the default 5 retries add up to 2s worst
+case.}
 }
 \value{
-\code{TRUE} (invisibly).
+Whether the directory was removed (invisibly).
 }
 \description{
-Remove a staging directory created by \code{sfs_stage_local()}
+Retries if the directory can't be removed on the first attempt --
+common on Windows if another process (antivirus, Search Indexing)
+still briefly holds a handle on a just-created file. Warns rather
+than erroring if it's still not removable after retrying, since
+whatever the staged files were needed for is presumably already
+done by this point; the directory is simply left in place.
 }
