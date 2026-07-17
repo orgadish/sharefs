@@ -32,8 +32,3 @@ each wait is independently varied by +/- 10\% so that multiple retrying
 callers hitting the same locked file or network resource don't wake up
 and collide again in lockstep ("thundering herd").
 }
-\examples{
-backoff_wait(1) # ~0.05s
-backoff_wait(4) # ~1.35s
-backoff_wait(4, jitter = FALSE) # exactly 1.35
-}

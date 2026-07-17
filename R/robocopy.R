@@ -1,3 +1,22 @@
+#' Check whether `robocopy` is available
+#'
+#' @description
+#' Checks whether `robocopy` is on `PATH`. Unlike
+#' [sfs_powershell_available()], does not test that it can be run.
+#'
+#' @return A single logical value.
+#' @export
+#'
+#' @examples
+#' sfs_robocopy_available()
+sfs_robocopy_available <- function() {
+   nzchar(find_robocopy())
+}
+
+find_robocopy <- function() {
+   Sys.which("robocopy")
+}
+
 #' Run `robocopy` to copy files from one directory to another
 #'
 #' @description
@@ -41,9 +60,23 @@
 #'
 #' @return Invisibly, a list with `status` (the exit code) and `success`
 #'   (`status < 8`).
-#' @seealso [sfs_powershell_available()], the equivalent availability
-#'   check for `sharefs`'s other external dependency.
+#' @seealso [sfs_robocopy_available()], which checks if robocopy is available
+#'   on this system.
+#'   
 #' @export
+#' 
+#' @examples
+#' 
+#' src <- tempfile()
+#' dir.create(src)
+#' 
+#' write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
+#' 
+#' dest <- tempfile()
+#' sfs_robocopy(src, dest)
+#' sfs_dir_info(dest)
+#' 
+#' fs::dir_delete(c(src, dest))
 sfs_robocopy <- function(source, destination, ...,
                          files = NULL,
                          recurse = FALSE, mirror = FALSE, move = FALSE,

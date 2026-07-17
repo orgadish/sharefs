@@ -15,11 +15,6 @@
 #'   wait times (e.g. in tests).
 #'
 #' @return A single numeric number of seconds.
-#'
-#' @examples
-#' backoff_wait(1) # ~0.05s
-#' backoff_wait(4) # ~1.35s
-#' backoff_wait(4, jitter = FALSE) # exactly 1.35
 backoff_wait <- function(attempt,
                          initial_wait_seconds = 0.05,
                          backoff_factor = 3,

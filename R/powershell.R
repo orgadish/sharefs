@@ -14,19 +14,15 @@ sharefs_powershell_cache_ttl <- function() {
 #' Check whether a usable PowerShell executable is available
 #'
 #' @description
-#' Looks for `pwsh` (PowerShell 7+), falling back to the older
-#' `powershell.exe`, and runs a lightweight smoke test (`Write-Output 1`)
-#' to confirm it's actually allowed to run -- the executable can exist
-#' on `PATH` and still be blocked by an AppLocker/WDAC policy.
+#' Looks for `pwsh` or `powershell` and runs a lightweight smoke test 
+#' (`Write-Output 1`) to confirm it can actually run (it may exist, but be
+#' blocked from running).
 #'
 #' The result is cached for the rest of the R session. The cache is
 #' asymmetric: a cached `FALSE` is always rechecked (so if you fix
 #' whatever was blocking PowerShell, the very next call reflects that
 #' immediately), while a cached `TRUE` is trusted for up to 1 day before
 #' being rechecked.
-#'
-#' [sfs_dir_info()] and [sfs_robocopy()] both error, rather than falling
-#' back to something else, when their respective tool isn't available.
 #'
 #' @return A single logical value.
 #' @export
@@ -70,26 +66,6 @@ check_powershell_usable <- function() {
       },
       error = function(e) FALSE
    )
-}
-
-#' Check whether `robocopy` is available
-#'
-#' @description
-#' Checks whether `robocopy` is on `PATH`. Unlike
-#' [sfs_powershell_available()], this isn't cached -- it's a plain,
-#' cheap `Sys.which()` check with no smoke test behind it.
-#'
-#' @return A single logical value.
-#' @export
-#'
-#' @examples
-#' sfs_robocopy_available()
-sfs_robocopy_available <- function() {
-   nzchar(find_robocopy())
-}
-
-find_robocopy <- function() {
-   Sys.which("robocopy")
 }
 
 find_powershell <- function() {

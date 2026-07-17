@@ -17,56 +17,49 @@ sfs_dir_info(
 )
 }
 \arguments{
-\item{path}{A directory path, or a character vector of several.}
+\item{path}{A character vector of one or more paths.}
 
-\item{all}{Include hidden files. Default \code{FALSE}.}
+\item{all}{If \code{TRUE} hidden files are also returned.}
 
-\item{recurse}{Recurse into subdirectories. Default \code{FALSE}.}
+\item{recurse}{If \code{TRUE} recurse fully, if a positive number the number of levels
+to recurse.}
 
-\item{type}{One or more of \code{"any"} (default), \code{"file"}, \code{"directory"},
-\code{"symlink"}. Other \code{fs} types are accepted but never match anything
-on NTFS/SMB.}
+\item{type}{File type(s) to return, one or more of "any", "file", "directory",
+"symlink", "FIFO", "socket", "character_device" or "block_device".}
 
-\item{regexp}{Regular expression to filter by, matched against the
-full path. Only one of \code{regexp}/\code{glob} may be supplied.}
+\item{regexp}{A regular expression (e.g. \verb{[.]csv$}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
 
-\item{glob}{Wildcard pattern (e.g. \code{"*.csv"}) to filter by.}
+\item{glob}{A wildcard aka globbing pattern (e.g. \verb{*.csv}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
 
-\item{invert}{If \code{TRUE}, return entries that don't match.}
+\item{invert}{If \code{TRUE} return files which do \emph{not} match}
 
-\item{fail}{If \code{TRUE} (default), error on a non-existent path;
-otherwise drop it with a warning.}
+\item{fail}{Should the call fail (the default) or warn if a file cannot be
+accessed.}
 
 \item{...}{Passed to \code{\link[=grepl]{grepl()}} (e.g. \code{ignore.case = TRUE}).}
 }
 \value{
 A tibble with columns \code{path}, \code{type}, \code{size},
-\code{modification_time}, \code{access_time}, \code{birth_time}. A
-\code{sharefs_warning_powershell_partial} warning is raised if some
-items (e.g. a permission-denied subfolder) had to be skipped -- the
-returned tibble still contains everything else that was retrieved.
+\code{modification_time}, \code{access_time}, \code{birth_time}.
 }
 \description{
 Lists files and metadata in a single network round trip, using
 PowerShell's \code{Get-ChildItem} instead of one \code{stat()} per file.
 
-Arguments mirror \code{\link[fs:dir_info]{fs::dir_info()}}. The result has fewer columns,
-though: \code{path}, \code{type}, \code{size}, \code{modification_time}, \code{access_time},
-\code{birth_time}. The rest of \code{fs::dir_info()}'s 18 columns aren't
-available via \code{Get-ChildItem} the same way, so they're left out
-rather than filled in with placeholders -- call \code{\link[fs:dir_info]{fs::dir_info()}}
-directly if you need them.
+This is similar to \code{\link[fs:dir_info]{fs::dir_info()}}, but not identical.
 
-Errors if PowerShell isn't available (see
-\code{\link[=sfs_powershell_available]{sfs_powershell_available()}}), or if a listing attempt still fails
-after retrying -- there's no fallback to \code{\link[fs:dir_info]{fs::dir_info()}}. Call that
-directly if you want its behavior instead; it accepts the same
-\code{type}/\code{regexp}/\code{glob}/\code{invert} filtering natively.
+The output includes only the subset of the columns that are available via
+\code{Get-ChildItem}: \code{path}, \code{type}, \code{size}, \code{modification_time}, \code{access_time},
+\code{birth_time}. Unlike \code{\link[fs:dir_info]{fs::dir_info()}}, it will return partial results with
+a \code{sharefs_warning_powershell_partial} warning if some items had to be
+skipped (e.g. a permission-denied subfolder).
+
+Automatically includes retry logic if an intermittent error is encountered.
 }
 \examples{
 sfs_dir_info(system.file(package = "sharefs"))
 }
 \seealso{
-\code{\link[=sfs_powershell_available]{sfs_powershell_available()}} for how PowerShell's own
-availability is determined and cached.
+\code{\link[=sfs_powershell_available]{sfs_powershell_available()}} which checks if Powershell is
+available and accessible.
 }

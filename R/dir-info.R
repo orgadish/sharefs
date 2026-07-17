@@ -4,40 +4,24 @@
 #' Lists files and metadata in a single network round trip, using
 #' PowerShell's `Get-ChildItem` instead of one `stat()` per file.
 #'
-#' Arguments mirror [fs::dir_info()]. The result has fewer columns,
-#' though: `path`, `type`, `size`, `modification_time`, `access_time`,
-#' `birth_time`. The rest of `fs::dir_info()`'s 18 columns aren't
-#' available via `Get-ChildItem` the same way, so they're left out
-#' rather than filled in with placeholders -- call [fs::dir_info()]
-#' directly if you need them.
+#' This is similar to [fs::dir_info()], but not identical. 
+#' 
+#' The output includes only the subset of the columns that are available via 
+#' `Get-ChildItem`: `path`, `type`, `size`, `modification_time`, `access_time`, 
+#' `birth_time`. Unlike [fs::dir_info()], it will return partial results with
+#' a `sharefs_warning_powershell_partial` warning if some items had to be 
+#' skipped (e.g. a permission-denied subfolder).
 #'
-#' Errors if PowerShell isn't available (see
-#' [sfs_powershell_available()]), or if a listing attempt still fails
-#' after retrying -- there's no fallback to [fs::dir_info()]. Call that
-#' directly if you want its behavior instead; it accepts the same
-#' `type`/`regexp`/`glob`/`invert` filtering natively.
+#' Automatically includes retry logic if an intermittent error is encountered.
 #'
-#' @param path A directory path, or a character vector of several.
-#' @param all Include hidden files. Default `FALSE`.
-#' @param recurse Recurse into subdirectories. Default `FALSE`.
-#' @param type One or more of `"any"` (default), `"file"`, `"directory"`,
-#'   `"symlink"`. Other `fs` types are accepted but never match anything
-#'   on NTFS/SMB.
-#' @param regexp Regular expression to filter by, matched against the
-#'   full path. Only one of `regexp`/`glob` may be supplied.
-#' @param glob Wildcard pattern (e.g. `"*.csv"`) to filter by.
-#' @param invert If `TRUE`, return entries that don't match.
-#' @param fail If `TRUE` (default), error on a non-existent path;
-#'   otherwise drop it with a warning.
+#' @inheritParams fs::dir_info
 #' @param ... Passed to [grepl()] (e.g. `ignore.case = TRUE`).
 #'
 #' @return A tibble with columns `path`, `type`, `size`,
-#'   `modification_time`, `access_time`, `birth_time`. A
-#'   `sharefs_warning_powershell_partial` warning is raised if some
-#'   items (e.g. a permission-denied subfolder) had to be skipped -- the
-#'   returned tibble still contains everything else that was retrieved.
-#' @seealso [sfs_powershell_available()] for how PowerShell's own
-#'   availability is determined and cached.
+#'   `modification_time`, `access_time`, `birth_time`.
+#'   
+#' @seealso [sfs_powershell_available()] which checks if Powershell is 
+#'    available and accessible.
 #' @export
 #'
 #' @examples
@@ -117,7 +101,7 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
 #'
 #' @inheritParams sfs_dir_info
 #'
-#' @return A character vector of paths (an [fs::fs_path()]).
+#' @return A named `fs::fs_path` character vector.
 #' @export
 #'
 #' @examples
@@ -125,8 +109,10 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
 sfs_dir_ls <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
                     regexp = NULL, glob = NULL, invert = FALSE,
                     fail = TRUE, ...) {
-  sfs_dir_info(
+  paths <- sfs_dir_info(
     path = path, all = all, recurse = recurse, type = type,
     regexp = regexp, glob = glob, invert = invert, fail = fail, ...
   )$path
+  
+  setNames(paths, paths)
 }

@@ -17,30 +17,29 @@ sfs_dir_ls(
 )
 }
 \arguments{
-\item{path}{A directory path, or a character vector of several.}
+\item{path}{A character vector of one or more paths.}
 
-\item{all}{Include hidden files. Default \code{FALSE}.}
+\item{all}{If \code{TRUE} hidden files are also returned.}
 
-\item{recurse}{Recurse into subdirectories. Default \code{FALSE}.}
+\item{recurse}{If \code{TRUE} recurse fully, if a positive number the number of levels
+to recurse.}
 
-\item{type}{One or more of \code{"any"} (default), \code{"file"}, \code{"directory"},
-\code{"symlink"}. Other \code{fs} types are accepted but never match anything
-on NTFS/SMB.}
+\item{type}{File type(s) to return, one or more of "any", "file", "directory",
+"symlink", "FIFO", "socket", "character_device" or "block_device".}
 
-\item{regexp}{Regular expression to filter by, matched against the
-full path. Only one of \code{regexp}/\code{glob} may be supplied.}
+\item{regexp}{A regular expression (e.g. \verb{[.]csv$}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
 
-\item{glob}{Wildcard pattern (e.g. \code{"*.csv"}) to filter by.}
+\item{glob}{A wildcard aka globbing pattern (e.g. \verb{*.csv}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
 
-\item{invert}{If \code{TRUE}, return entries that don't match.}
+\item{invert}{If \code{TRUE} return files which do \emph{not} match}
 
-\item{fail}{If \code{TRUE} (default), error on a non-existent path;
-otherwise drop it with a warning.}
+\item{fail}{Should the call fail (the default) or warn if a file cannot be
+accessed.}
 
 \item{...}{Passed to \code{\link[=grepl]{grepl()}} (e.g. \code{ignore.case = TRUE}).}
 }
 \value{
-A character vector of paths (an \code{\link[fs:fs_path]{fs::fs_path()}}).
+A named \code{fs::fs_path} character vector.
 }
 \description{
 \code{sfs_dir_info(...)$path}. No extra cost to fetching full metadata even

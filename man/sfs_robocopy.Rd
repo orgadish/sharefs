@@ -79,7 +79,20 @@ the flags people reach for most often as named arguments; anything
 else can be passed via \code{...}, e.g. \code{sfs_robocopy(src, dst, "/SEC")}. See
 \verb{robocopy /?} for the full flag reference.
 }
+\examples{
+
+src <- tempfile()
+dir.create(src)
+
+write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
+
+dest <- tempfile()
+sfs_robocopy(src, dest)
+sfs_dir_info(dest)
+
+fs::dir_delete(c(src, dest))
+}
 \seealso{
-\code{\link[=sfs_powershell_available]{sfs_powershell_available()}}, the equivalent availability
-check for \code{sharefs}'s other external dependency.
+\code{\link[=sfs_robocopy_available]{sfs_robocopy_available()}}, which checks if robocopy is available
+on this system.
 }
