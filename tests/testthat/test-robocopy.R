@@ -530,10 +530,8 @@ test_that("sfs_robocopy() actually copies files on a real Windows machine", {
 })
 
 test_that("sfs_robocopy() handles source/destination paths containing spaces on a real Windows machine", {
-   # shQuote() was removed when this moved to processx, on the reasoning
-   # that processx quotes each argument itself -- this confirms that's
-   # actually true in practice, not just in theory, for exactly the case
-   # manual quoting used to exist for.
+   # processx quotes each argument itself; this confirms that holds in
+   # practice, not just in theory, for paths containing spaces.
    skip_if_not(sfs_robocopy_available())
    
    src <- file.path(withr::local_tempdir(), "dir with spaces")
@@ -621,10 +619,10 @@ test_that("sfs_robocopy() with log_file really writes a log with actual content"
    expect_true(file.exists(log_path))
    log_lines <- readLines(log_path)
    # A bare "length > 0" check isn't a strong enough assertion here -- a
-   # log containing only a single blank line already satisfies that,
-   # which is exactly the bug this test exists to catch (the always-on
-   # /NFL /NDL /NJH /NJS flags used to suppress everything a log is
-   # meant to capture). Check for the actual copied file name instead.
+   # log containing only a single blank line already satisfies that.
+   # /NFL /NDL /NJH /NJS are suppressed by default and only skipped when
+   # log_file is set, but check for the actual copied file name to be
+   # sure the log has real content, not just a nonzero line count.
    expect_true(any(grepl("a.txt", log_lines, fixed = TRUE)))
 })
 

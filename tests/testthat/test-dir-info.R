@@ -74,6 +74,11 @@ test_that("unique() does NOT preserve fs_path's class -- dedupe first, then re-w
    expect_equal(as.character(deduped), c("a", "b"))
 })
 
+test_that("setNames() preserves fs_path's class -- sfs_dir_ls() relies on this for its named fs_path return", {
+   result <- setNames(fs::as_fs_path(c("a", "b")), c("a", "b"))
+   expect_s3_class(result, "fs_path")
+})
+
 test_that("sfs_dir_info() deduplicates path before listing, avoiding redundant work and duplicate rows", {
    received_path <- NULL
    
@@ -247,7 +252,7 @@ test_that("is_permission_error() stops at the first literal match instead of che
    expect_equal(call_count, 1)
 })
 
-# --- no fallback: PowerShell unavailable or failing now always errors ------
+# --- no fallback: PowerShell unavailable or failing always errors ---------
 # fs::dir_info(recurse = TRUE) aborts entirely on one inaccessible
 # subdirectory (see dir-info-impl.R), so it isn't a safe silent
 # fallback -- sfs_dir_info() errors instead of switching backends.
@@ -538,11 +543,10 @@ test_that("dir_info_powershell() respects recurse", {
 test_that("dir_info_powershell() correctly parses tricky file names (commas, non-ASCII)", {
    skip_if_not(sfs_powershell_available())
    
-   # Regression test: commas need correct CSV escaping (legal in Windows
-   # filenames), and non-ASCII names were previously mangled because
-   # Windows PowerShell 5.1 writes stdout using the system's legacy
-   # codepage when redirected, not UTF-8 -- confirmed against a real run
-   # before run_powershell() forced UTF-8 output explicitly.
+   # Commas need correct CSV escaping (legal in Windows filenames).
+   # Non-ASCII names need UTF-8 output forced explicitly: Windows
+   # PowerShell 5.1 otherwise writes stdout using the system's legacy
+   # codepage when redirected.
    dir <- withr::local_tempdir()
    names <- c("a,b.txt", "cafe_\u00e9.txt", "\u65e5\u672c\u8a9e.txt", "\u0420\u0443\u0441.txt")
    for (nm in names) writeLines("test", file.path(dir, nm))
@@ -589,7 +593,7 @@ test_that("sfs_dir_ls() returns sfs_dir_info()'s path column and forwards argume
       }
    )
    
-   expect_equal(result, c("a", "b"))
+   expect_equal(result, c(a = "a", b = "b"))
    expect_equal(captured_args$path, "some/dir")
    expect_equal(captured_args$glob, "*.csv")
    expect_equal(captured_args$type, "file")

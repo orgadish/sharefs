@@ -21,20 +21,23 @@ sfs_dir_ls(
 
 \item{all}{If \code{TRUE} hidden files are also returned.}
 
-\item{recurse}{If \code{TRUE} recurse fully, if a positive number the number of levels
-to recurse.}
+\item{recurse}{Whether to recurse into subdirectories. Depth-limited
+recursion is not supported.}
 
-\item{type}{File type(s) to return, one or more of "any", "file", "directory",
-"symlink", "FIFO", "socket", "character_device" or "block_device".}
+\item{type}{File type(s) to return, one or more of "any", "file",
+"directory", "symlink", "FIFO", "socket", "character_device" or
+"block_device".}
 
-\item{regexp}{A regular expression (e.g. \verb{[.]csv$}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
+\item{regexp}{A regular expression (e.g. \verb{[.]csv$}) passed on to
+\code{\link[=grep]{grep()}} to filter paths.}
 
-\item{glob}{A wildcard aka globbing pattern (e.g. \verb{*.csv}) passed on to \code{\link[=grep]{grep()}} to filter paths.}
+\item{glob}{A wildcard aka globbing pattern (e.g. \verb{*.csv}) passed on
+to \code{\link[=grep]{grep()}} to filter paths.}
 
 \item{invert}{If \code{TRUE} return files which do \emph{not} match}
 
-\item{fail}{Should the call fail (the default) or warn if a file cannot be
-accessed.}
+\item{fail}{Should the call fail (the default) or warn if a file
+cannot be accessed.}
 
 \item{...}{Passed to \code{\link[=grepl]{grepl()}} (e.g. \code{ignore.case = TRUE}).}
 }

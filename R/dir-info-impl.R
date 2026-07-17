@@ -1,17 +1,3 @@
-# Backend implementation for sfs_dir_info() (see dir-info.R for the
-# front-end: argument validation, dispatch, retry). Everything here is
-# either the PowerShell backend itself, or logic shared with the
-# front-end (column/type definitions, filtering).
-#
-# There's no fs backend: fs::dir_info(recurse = TRUE) aborts the entire
-# call if any one subdirectory is inaccessible, discarding results for
-# every sibling the caller did have permission to see. Get-ChildItem
-# -Recurse instead skips the inaccessible item and returns everything
-# else (see run_powershell()). Since fs is strictly less robust here,
-# falling back to it on PowerShell failure would trade a real problem
-# for a worse, silent one -- sfs_dir_info() errors instead and points
-# the caller at fs::dir_info() directly if they want it.
-
 dir_info_columns <- function() {
    c("path", "type", "size", "modification_time", "access_time", "birth_time")
 }

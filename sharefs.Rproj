@@ -4,6 +4,9 @@ RestoreWorkspace: No
 SaveWorkspace: No
 AlwaysSaveHistory: No
 
+EnableCodeIndexing: Yes
+UseSpacesForTab: Yes
+NumSpacesForTab: 3
 Encoding: UTF-8
 
 RnwWeave: Sweave
