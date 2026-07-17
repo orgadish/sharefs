@@ -21,7 +21,7 @@ whatever was blocking PowerShell, the very next call reflects that
 immediately), while a cached \code{TRUE} is trusted for up to 1 day before
 being rechecked.
 
-\code{\link[=sfs_dir_info]{sfs_dir_info()}} and \code{\link[=robocopy]{robocopy()}} both error, rather than falling
+\code{\link[=sfs_dir_info]{sfs_dir_info()}} and \code{\link[=sfs_robocopy]{sfs_robocopy()}} both error, rather than falling
 back to something else, when their respective tool isn't available.
 }
 \examples{

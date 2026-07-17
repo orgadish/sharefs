@@ -15,21 +15,20 @@
 #'   wait times (e.g. in tests).
 #'
 #' @return A single numeric number of seconds.
-#' @export
 #'
 #' @examples
 #' backoff_wait(1) # ~0.05s
 #' backoff_wait(4) # ~1.35s
 #' backoff_wait(4, jitter = FALSE) # exactly 1.35
 backoff_wait <- function(attempt,
-                          initial_wait_seconds = 0.05,
-                          backoff_factor = 3,
-                          jitter = TRUE) {
-  wait <- initial_wait_seconds * backoff_factor^(attempt - 1)
-  if (jitter) {
-    wait <- wait * stats::runif(1, 0.9, 1.1)
-  }
-  wait
+                         initial_wait_seconds = 0.05,
+                         backoff_factor = 3,
+                         jitter = TRUE) {
+   wait <- initial_wait_seconds * backoff_factor^(attempt - 1)
+   if (jitter) {
+      wait <- wait * stats::runif(1, 0.9, 1.1)
+   }
+   wait
 }
 
 #' Retry an action if it throws an error
@@ -53,31 +52,30 @@ backoff_wait <- function(attempt,
 #'   sleeping or consuming further attempts.
 #'
 #' @return The successful result of `action()`.
-#' @export
 retry_on_error <- function(action,
-                            retries = 5,
-                            initial_wait_seconds = 0.05,
-                            jitter = TRUE,
-                            retryable = function(e) TRUE) {
-  retries <- max(1L, as.integer(retries))
-
-  for (i in seq_len(retries)) {
-    result <- tryCatch(list(value = action()), error = function(e) e)
-
-    if (!inherits(result, "error")) {
-      return(result$value)
-    }
-
-    if (!isTRUE(retryable(result))) {
-      break
-    }
-
-    if (i < retries) {
-      Sys.sleep(backoff_wait(i, initial_wait_seconds, jitter = jitter))
-    }
-  }
-
-  # Propagate the last caught error object directly, preserving its
-  # original class/attributes rather than re-wrapping it.
-  stop(result)
+                           retries = 5,
+                           initial_wait_seconds = 0.05,
+                           jitter = TRUE,
+                           retryable = function(e) TRUE) {
+   retries <- max(1L, as.integer(retries))
+   
+   for (i in seq_len(retries)) {
+      result <- tryCatch(list(value = action()), error = function(e) e)
+      
+      if (!inherits(result, "error")) {
+         return(result$value)
+      }
+      
+      if (!isTRUE(retryable(result))) {
+         break
+      }
+      
+      if (i < retries) {
+         Sys.sleep(backoff_wait(i, initial_wait_seconds, jitter = jitter))
+      }
+   }
+   
+   # Propagate the last caught error object directly, preserving its
+   # original class/attributes rather than re-wrapping it.
+   stop(result)
 }
