@@ -17,7 +17,9 @@ normally costs one network round trip per file. `sfs_dir_info()` uses a
 single `Get-ChildItem` call instead, and `sfs_stage_local()` copies
 files to local disk (via `robocopy`) before you read them.
 
-sharefs is Windows-only (`OS_type: windows`).
+sharefs is Windows-only (`OS_type: windows`). `sfs_dir_info()` requires
+PowerShell (see `sfs_powershell_available()`) and errors if it isn’t
+available, rather than silently falling back to `fs::dir_info()`.
 
 ## Installation
 
@@ -42,12 +44,12 @@ sfs_dir_info(network_location, glob = "*.csv")
 #> # A tibble: 2 × 6
 #>   path                       type   size modification_time   access_time        
 #>   <fs::path>                 <fct> <fs:> <dttm>              <dttm>             
-#> 1 …CS/file6a7c1abc7946/a.csv file     11 2026-07-14 00:11:06 2026-07-14 00:11:06
-#> 2 …CS/file6a7c1abc7946/b.csv file     11 2026-07-14 00:11:06 2026-07-14 00:11:06
+#> 1 …58t/filedbd4cb07f42/a.csv file     11 2026-07-16 18:50:13 2026-07-16 18:50:13
+#> 2 …58t/filedbd4cb07f42/b.csv file     11 2026-07-16 18:50:13 2026-07-16 18:50:13
 #> # ℹ 1 more variable: birth_time <dttm>
 sfs_dir_ls(network_location, glob = "*.csv")
-#> C:/Users/orgad/AppData/Local/Temp/Rtmp695nCS/file6a7c1abc7946/a.csv
-#> C:/Users/orgad/AppData/Local/Temp/Rtmp695nCS/file6a7c1abc7946/b.csv
+#> C:/Users/or.gadish/AppData/Local/Temp/RtmpqCP58t/filedbd4cb07f42/a.csv
+#> C:/Users/or.gadish/AppData/Local/Temp/RtmpqCP58t/filedbd4cb07f42/b.csv
 ```
 
 `sfs_dir_info()`’s columns are a narrower set than `fs::dir_info()`’s –
@@ -60,8 +62,8 @@ staged
 #> # A tibble: 2 × 4
 #>   path                                      local_path  size modification_time  
 #>   <fs::path>                                <chr>      <dbl> <dttm>             
-#> 1 …l/Temp/Rtmp695nCS/file6a7c1abc7946/a.csv "C:\\User…    11 2026-07-14 00:11:06
-#> 2 …l/Temp/Rtmp695nCS/file6a7c1abc7946/b.csv "C:\\User…    11 2026-07-14 00:11:06
+#> 1 …al/Temp/RtmpqCP58t/filedbd4cb07f42/a.csv "C:\\User…    11 2026-07-16 18:50:13
+#> 2 …al/Temp/RtmpqCP58t/filedbd4cb07f42/b.csv "C:\\User…    11 2026-07-16 18:50:13
 
 lapply(staged$local_path, read.csv)
 #> [[1]]

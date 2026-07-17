@@ -13,7 +13,8 @@
 #'   after `destination` so flags can be passed positionally; everything
 #'   from `files` onward must be named as a result.
 #' @param files File names (not full paths) to copy from `source`. If
-#'   `NULL` (default), copies every file directly in `source`.
+#'   `NULL` (default), copies every file directly in `source`. An empty
+#'   vector copies nothing.
 #' @param recurse Copy subdirectories, including empty ones (`/E`).
 #'   Ignored if `mirror = TRUE`.
 #' @param mirror Mirror `source` to `destination` (`/MIR`): also deletes
@@ -34,91 +35,115 @@
 #'   `robocopy`'s own (a million retries at 30s apart).
 #' @param error_on_failure If `TRUE` (default), aborts on failure. If
 #'   `FALSE`, returns the result either way.
+#' @param timeout Maximum time in seconds to let `robocopy` run before
+#'   killing it. Default `Inf` (no limit), since a copy can legitimately
+#'   take a long time.
 #'
 #' @return Invisibly, a list with `status` (the exit code) and `success`
 #'   (`status < 8`).
+#' @seealso [sfs_powershell_available()], the equivalent availability
+#'   check for `sharefs`'s other external dependency.
 #' @export
-robocopy <- function(
-   source,
-   destination,
-   ...,
-   files = NULL,
-   recurse = FALSE,
-   mirror = FALSE,
-   move = FALSE,
-   exclude_files = NULL,
-   exclude_dirs = NULL,
-   dry_run = FALSE,
-   log_file = NULL,
-   threads = 8,
-   retries = 5,
-   wait_seconds = 2,
-   error_on_failure = TRUE
-) {
-   if (!robocopy_available()) {
-      cli::cli_abort(
-         c(
-            "{.code robocopy} was not found on the {.envvar PATH}.",
-            "i" = "It ships with Windows by default; if it's genuinely
+robocopy <- function(source, destination, ...,
+                      files = NULL,
+                      recurse = FALSE, mirror = FALSE, move = FALSE,
+                      exclude_files = NULL, exclude_dirs = NULL,
+                      dry_run = FALSE, log_file = NULL,
+                      threads = 8, retries = 5, wait_seconds = 2,
+                      error_on_failure = TRUE, timeout = Inf) {
+  if (length(source) != 1 || length(destination) != 1) {
+    cli::cli_abort(
+      "{.arg source} and {.arg destination} must each be a single path.",
+      class = "sharefs_error_robocopy_bad_args"
+    )
+  }
+
+  exe <- find_robocopy()
+  if (!nzchar(exe)) {
+    cli::cli_abort(
+      c(
+        "{.code robocopy} was not found on the {.envvar PATH}.",
+        "i" = "It ships with Windows by default; if it's genuinely
                missing, this is likely a minimal or locked-down install."
-         ),
-         class = "sharefs_error_robocopy_unavailable"
-      )
-   }
+      ),
+      class = "sharefs_error_robocopy_unavailable"
+    )
+  }
 
-   # /NFL /NDL /NJH /NJS suppress exactly the content a log is meant to
-   # capture (confirmed against a real run: with them always on, a
-   # requested log_file came back essentially empty). They're only
-   # skipped when log_file is NULL, since robocopy's own console output
-   # is discarded either way in that case. /NP (per-file progress
-   # percentage) is pure noise even in a saved log, so it's always
-   # suppressed.
-   quiet_flags <- if (is.null(log_file)) {
-      c("/NFL", "/NDL", "/NJH", "/NJS", "/NP")
-   } else {
-      "/NP"
-   }
+  # An explicit, empty file list means "copy nothing" -- robocopy itself
+  # has no such concept (an absent file filter just means "everything").
+  if (!is.null(files) && length(files) == 0) {
+    return(invisible(list(status = 0L, success = TRUE)))
+  }
 
-   args <- c(
-      shQuote(source),
-      shQuote(destination),
-      if (!is.null(files)) shQuote(files),
-      if (mirror) {
-         "/MIR"
-      } else if (recurse) {
-         "/E"
-      },
-      if (move) "/MOVE",
-      if (!is.null(exclude_files)) c("/XF", shQuote(exclude_files)),
-      if (!is.null(exclude_dirs)) c("/XD", shQuote(exclude_dirs)),
-      if (dry_run) "/L",
-      if (!is.null(log_file)) paste0("/LOG:", shQuote(log_file)),
-      paste0("/MT:", threads),
-      paste0("/R:", retries),
-      paste0("/W:", wait_seconds),
-      quiet_flags,
-      ...
-   )
+  # /NFL /NDL /NJH /NJS suppress exactly the content a log is meant to
+  # capture. They're only skipped when log_file is NULL, since robocopy's
+  # own console output is discarded either way in that case. /NP
+  # (per-file progress percentage) is pure noise even in a saved log, so
+  # it's always suppressed.
+  quiet_flags <- if (is.null(log_file)) {
+    c("/NFL", "/NDL", "/NJH", "/NJS", "/NP")
+  } else {
+    "/NP"
+  }
 
-   status <- suppressWarnings(
-      system2("robocopy", args, stdout = FALSE, stderr = FALSE)
-   )
-   if (is.na(status)) {
-      status <- 16L # missing exit status treated as failure
-   }
+  args <- c(
+    source,
+    destination,
+    files,
+    if (mirror) "/MIR" else if (recurse) "/E",
+    if (move) "/MOVE",
+    # length(x) > 0, not !is.null(x): an empty (but non-NULL) vector
+    # would otherwise still add a bare /XF or /XD with no pattern after
+    # it, which robocopy could misparse as consuming whatever flag
+    # happens to follow as an exclude pattern instead.
+    if (length(exclude_files) > 0) c("/XF", exclude_files),
+    if (length(exclude_dirs) > 0) c("/XD", exclude_dirs),
+    if (dry_run) "/L",
+    if (!is.null(log_file)) paste0("/LOG:", log_file),
+    paste0("/MT:", threads),
+    paste0("/R:", retries),
+    paste0("/W:", wait_seconds),
+    quiet_flags,
+    ...
+  )
 
-   result <- list(status = status, success = status < 8)
-
-   if (error_on_failure && !result$success) {
+  res <- tryCatch(
+    processx::run(
+      command = exe,
+      args = args,
+      error_on_status = FALSE,
+      timeout = timeout
+    ),
+    error = function(e) {
+      spawn_error <- e$message
       cli::cli_abort(
-         c(
-            "{.code robocopy} failed copying from {.path {source}} to
-         {.path {destination}}, even after retrying.",
-            "i" = "Exit code: {status}"
-         ),
-         class = "sharefs_error_robocopy_failed"
+        c(
+          "The background robocopy process failed to start or timed out.",
+          "x" = "{spawn_error}"
+        ),
+        class = "sharefs_error_robocopy_execution_failed"
       )
-   }
+    }
+  )
 
-   invisible(result)
+  status <- as.integer(res$status)
+  if (is.na(status)) {
+    status <- 16L # missing exit status treated as failure
+  }
+
+  result <- list(status = status, success = status < 8)
+
+  if (error_on_failure && !result$success) {
+    cli::cli_abort(
+      c(
+        "{.code robocopy} failed copying from {.path {source}} to
+         {.path {destination}}, even after retrying.",
+        "i" = "Exit code: {status}"
+      ),
+      class = "sharefs_error_robocopy_failed"
+    )
+  }
+
+  invisible(result)
 }

@@ -26,7 +26,9 @@ normally costs one network round trip per file. `sfs_dir_info()` uses a
 single `Get-ChildItem` call instead, and `sfs_stage_local()` copies files
 to local disk (via `robocopy`) before you read them.
 
-sharefs is Windows-only (`OS_type: windows`).
+sharefs is Windows-only (`OS_type: windows`). `sfs_dir_info()` requires
+PowerShell (see `sfs_powershell_available()`) and errors if it isn't
+available, rather than silently falling back to `fs::dir_info()`.
 
 ## Installation
 

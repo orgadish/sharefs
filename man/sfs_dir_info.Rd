@@ -41,13 +41,14 @@ otherwise drop it with a warning.}
 }
 \value{
 A tibble with columns \code{path}, \code{type}, \code{size},
-\code{modification_time}, \code{access_time}, \code{birth_time}.
+\code{modification_time}, \code{access_time}, \code{birth_time}. A
+\code{sharefs_warning_powershell_partial} warning is raised if some
+items (e.g. a permission-denied subfolder) had to be skipped -- the
+returned tibble still contains everything else that was retrieved.
 }
 \description{
 Lists files and metadata in a single network round trip, using
-PowerShell's \code{Get-ChildItem} instead of one \code{stat()} per file. Retries
-a few times before falling back to \code{\link[fs:dir_info]{fs::dir_info()}} if PowerShell
-isn't available or fails.
+PowerShell's \code{Get-ChildItem} instead of one \code{stat()} per file.
 
 Arguments mirror \code{\link[fs:dir_info]{fs::dir_info()}}. The result has fewer columns,
 though: \code{path}, \code{type}, \code{size}, \code{modification_time}, \code{access_time},
@@ -55,7 +56,17 @@ though: \code{path}, \code{type}, \code{size}, \code{modification_time}, \code{a
 available via \code{Get-ChildItem} the same way, so they're left out
 rather than filled in with placeholders -- call \code{\link[fs:dir_info]{fs::dir_info()}}
 directly if you need them.
+
+Errors if PowerShell isn't available (see
+\code{\link[=sfs_powershell_available]{sfs_powershell_available()}}), or if a listing attempt still fails
+after retrying -- there's no fallback to \code{\link[fs:dir_info]{fs::dir_info()}}. Call that
+directly if you want its behavior instead; it accepts the same
+\code{type}/\code{regexp}/\code{glob}/\code{invert} filtering natively.
 }
 \examples{
 sfs_dir_info(system.file(package = "sharefs"))
+}
+\seealso{
+\code{\link[=sfs_powershell_available]{sfs_powershell_available()}} for how PowerShell's own
+availability is determined and cached.
 }

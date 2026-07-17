@@ -10,7 +10,19 @@ sfs_powershell_available()
 A single logical value.
 }
 \description{
-Looks for \code{powershell.exe}, falling back to \code{pwsh}.
+Looks for \code{pwsh} (PowerShell 7+), falling back to the older
+\code{powershell.exe}, and runs a lightweight smoke test (\verb{Write-Output 1})
+to confirm it's actually allowed to run -- the executable can exist
+on \code{PATH} and still be blocked by an AppLocker/WDAC policy.
+
+The result is cached for the rest of the R session. The cache is
+asymmetric: a cached \code{FALSE} is always rechecked (so if you fix
+whatever was blocking PowerShell, the very next call reflects that
+immediately), while a cached \code{TRUE} is trusted for up to 1 day before
+being rechecked.
+
+\code{\link[=sfs_dir_info]{sfs_dir_info()}} and \code{\link[=robocopy]{robocopy()}} both error, rather than falling
+back to something else, when their respective tool isn't available.
 }
 \examples{
 sfs_powershell_available()

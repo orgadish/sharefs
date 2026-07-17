@@ -19,7 +19,8 @@ robocopy(
   threads = 8,
   retries = 5,
   wait_seconds = 2,
-  error_on_failure = TRUE
+  error_on_failure = TRUE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -31,7 +32,8 @@ after \code{destination} so flags can be passed positionally; everything
 from \code{files} onward must be named as a result.}
 
 \item{files}{File names (not full paths) to copy from \code{source}. If
-\code{NULL} (default), copies every file directly in \code{source}.}
+\code{NULL} (default), copies every file directly in \code{source}. An empty
+vector copies nothing.}
 
 \item{recurse}{Copy subdirectories, including empty ones (\verb{/E}).
 Ignored if \code{mirror = TRUE}.}
@@ -61,6 +63,10 @@ between retries. Defaults (\code{5}, \code{2}) are more patient than
 
 \item{error_on_failure}{If \code{TRUE} (default), aborts on failure. If
 \code{FALSE}, returns the result either way.}
+
+\item{timeout}{Maximum time in seconds to let \code{robocopy} run before
+killing it. Default \code{Inf} (no limit), since a copy can legitimately
+take a long time.}
 }
 \value{
 Invisibly, a list with \code{status} (the exit code) and \code{success}
@@ -72,4 +78,8 @@ exit code (0-7 = success, 8+ = failure, even after retries). Exposes
 the flags people reach for most often as named arguments; anything
 else can be passed via \code{...}, e.g. \code{robocopy(src, dst, "/SEC")}. See
 \verb{robocopy /?} for the full flag reference.
+}
+\seealso{
+\code{\link[=sfs_powershell_available]{sfs_powershell_available()}}, the equivalent availability
+check for \code{sharefs}'s other external dependency.
 }

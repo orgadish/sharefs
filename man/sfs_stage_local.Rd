@@ -11,7 +11,9 @@ sfs_stage_local(files, dir = NULL)
 the output of \code{\link[=sfs_dir_info]{sfs_dir_info()}}.}
 
 \item{dir}{The local directory to copy files into. If \code{NULL} (default),
-a new temporary directory is created.}
+a new temporary directory is created. If an existing directory is
+given, \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} will only remove the files it staged
+there, not the directory itself or anything else already in it.}
 }
 \value{
 A tibble with columns \code{path}, \code{local_path}, \code{size}, and

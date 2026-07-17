@@ -2,9 +2,7 @@
 #'
 #' @description
 #' Lists files and metadata in a single network round trip, using
-#' PowerShell's `Get-ChildItem` instead of one `stat()` per file. Retries
-#' a few times before falling back to [fs::dir_info()] if PowerShell
-#' isn't available or fails.
+#' PowerShell's `Get-ChildItem` instead of one `stat()` per file.
 #'
 #' Arguments mirror [fs::dir_info()]. The result has fewer columns,
 #' though: `path`, `type`, `size`, `modification_time`, `access_time`,
@@ -12,6 +10,12 @@
 #' available via `Get-ChildItem` the same way, so they're left out
 #' rather than filled in with placeholders -- call [fs::dir_info()]
 #' directly if you need them.
+#'
+#' Errors if PowerShell isn't available (see
+#' [sfs_powershell_available()]), or if a listing attempt still fails
+#' after retrying -- there's no fallback to [fs::dir_info()]. Call that
+#' directly if you want its behavior instead; it accepts the same
+#' `type`/`regexp`/`glob`/`invert` filtering natively.
 #'
 #' @param path A directory path, or a character vector of several.
 #' @param all Include hidden files. Default `FALSE`.
@@ -28,87 +32,79 @@
 #' @param ... Passed to [grepl()] (e.g. `ignore.case = TRUE`).
 #'
 #' @return A tibble with columns `path`, `type`, `size`,
-#'   `modification_time`, `access_time`, `birth_time`.
+#'   `modification_time`, `access_time`, `birth_time`. A
+#'   `sharefs_warning_powershell_partial` warning is raised if some
+#'   items (e.g. a permission-denied subfolder) had to be skipped -- the
+#'   returned tibble still contains everything else that was retrieved.
+#' @seealso [sfs_powershell_available()] for how PowerShell's own
+#'   availability is determined and cached.
 #' @export
 #'
 #' @examples
 #' sfs_dir_info(system.file(package = "sharefs"))
-sfs_dir_info <- function(
-   path = ".",
-   all = FALSE,
-   recurse = FALSE,
-   type = "any",
-   regexp = NULL,
-   glob = NULL,
-   invert = FALSE,
-   fail = TRUE,
-   ...
-) {
-   # Argument validation
-   type <- validate_dir_info_type(type)
-   regexp <- resolve_dir_info_pattern(regexp, glob)
+sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
+                      regexp = NULL, glob = NULL, invert = FALSE,
+                      fail = TRUE, ...) {
+  # Argument validation
+  # unique() first, fs::as_fs_path() after: unique() doesn't preserve
+  # fs_path's class, so converting first would lose it.
+  path <- fs::as_fs_path(unique(path))
+  type <- validate_dir_info_type(type)
+  validate_regexp_glob_exclusive(regexp, glob)
 
-   missing_paths <- path[!dir.exists(path)]
-   if (length(missing_paths) > 0) {
-      if (fail) {
-         cli::cli_abort(
-            c(
-               "{.arg path} must contain only existing directories.",
-               "x" = "Not found: {.path {missing_paths}}"
-            ),
-            class = "sharefs_error_path_not_found"
-         )
-      }
-      cli::cli_warn(
-         c(
-            "Skipping {.arg path} entries that don't exist.",
-            "x" = "Not found: {.path {missing_paths}}"
-         ),
-         class = "sharefs_warning_path_not_found"
+  exists_mask <- fs::dir_exists(path)
+  missing_paths <- path[!exists_mask]
+
+  if (length(missing_paths) > 0) {
+    if (fail) {
+      cli::cli_abort(
+        c(
+          "{.arg path} must contain only existing directories.",
+          "x" = "Not found: {.path {missing_paths}}"
+        ),
+        class = "sharefs_error_path_not_found"
       )
-      path <- setdiff(path, missing_paths)
-   }
+    }
+    cli::cli_warn(
+      c(
+        "Skipping {.arg path} entries that don't exist.",
+        "x" = "Not found: {.path {missing_paths}}"
+      ),
+      class = "sharefs_warning_path_not_found"
+    )
+    # Logical indexing, not setdiff(path, missing_paths): setdiff()
+    # strips fs_path's class (and its slash formatting/printing).
+    path <- path[exists_mask]
+  }
 
-   if (length(path) == 0) {
-      return(empty_dir_info())
-   }
+  if (length(path) == 0) {
+    return(empty_dir_info())
+  }
 
-   # Try PowerShell first, retrying a transient failure (e.g. a brief
-   # network blip) before giving up on it -- falling back to fs doesn't
-   # route around that kind of failure, since both backends need to
-   # reach the same network path.
-   info <- NULL
+  if (!sfs_powershell_available()) {
+    cli::cli_abort(
+      c(
+        "PowerShell is not available on this device.",
+        "i" = "Use {.fn fs::dir_info} instead -- it accepts the same
+               {.arg type}/{.arg regexp}/{.arg glob}/{.arg invert}
+               filtering natively, with a superset of this function's
+               columns.",
+        "i" = "If you've just made PowerShell available (e.g. an
+               AppLocker/WDAC exception), just try again --
+               {.fn sfs_powershell_available} always rechecks after a
+               {.val FALSE} result."
+      ),
+      class = "sharefs_error_powershell_unavailable"
+    )
+  }
 
-   if (sfs_powershell_available()) {
-      info <- tryCatch(
-         retry_on_error(
-            function() dir_info_powershell(path, all = all, recurse = recurse),
-            retries = 5
-         ),
-         error = function(e) {
-            cli::cli_warn(
-               c(
-                  "The {.val powershell} listing failed after retrying; falling back to {.pkg fs}.",
-                  "i" = conditionMessage(e)
-               ),
-               class = "sharefs_warning_powershell_fallback"
-            )
-            NULL
-         }
-      )
-   }
+  info <- retry_on_error(
+    function() dir_info_powershell(path, all = all, recurse = recurse),
+    retries = 5,
+    retryable = function(e) !is_permission_error(e)
+  )
 
-   # Otherwise fall back to fs, with the same light retry -- this is the
-   # last resort, so a transient failure here has nothing further to
-   # fall back to.
-   if (is.null(info)) {
-      info <- retry_on_error(
-         function() dir_info_fs(path, all = all, recurse = recurse),
-         retries = 5
-      )
-   }
-
-   filter_dir_info(info, type = type, regexp = regexp, invert = invert, ...)
+  filter_dir_info(info, type = type, regexp = regexp, glob = glob, invert = invert, ...)
 }
 
 
@@ -126,26 +122,11 @@ sfs_dir_info <- function(
 #'
 #' @examples
 #' sfs_dir_ls(system.file(package = "sharefs"))
-sfs_dir_ls <- function(
-   path = ".",
-   all = FALSE,
-   recurse = FALSE,
-   type = "any",
-   regexp = NULL,
-   glob = NULL,
-   invert = FALSE,
-   fail = TRUE,
-   ...
-) {
-   sfs_dir_info(
-      path = path,
-      all = all,
-      recurse = recurse,
-      type = type,
-      regexp = regexp,
-      glob = glob,
-      invert = invert,
-      fail = fail,
-      ...
-   )$path
+sfs_dir_ls <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
+                    regexp = NULL, glob = NULL, invert = FALSE,
+                    fail = TRUE, ...) {
+  sfs_dir_info(
+    path = path, all = all, recurse = recurse, type = type,
+    regexp = regexp, glob = glob, invert = invert, fail = fail, ...
+  )$path
 }
