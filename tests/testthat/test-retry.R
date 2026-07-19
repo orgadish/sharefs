@@ -1,16 +1,28 @@
-test_that("backoff_wait() triples from the initial wait when jitter = FALSE", {
-   # jitter = FALSE allows exact determinism checks
-   expect_equal(backoff_wait(1, initial_wait_seconds = 0.05, jitter = FALSE), 0.05)
-   expect_equal(backoff_wait(2, initial_wait_seconds = 0.05, jitter = FALSE), 0.15)
-   expect_equal(backoff_wait(3, initial_wait_seconds = 0.05, jitter = FALSE), 0.45)
-   expect_equal(backoff_wait(4, initial_wait_seconds = 0.05, jitter = FALSE), 1.35)
+test_that("get_backoff_wait() triples from the initial wait when jitter = FALSE", {
+   # Note: get_backoff_wait() returns the value -- it does not actually sleep.
+   wait <- 0.05
+   expect_equal(get_backoff_wait(1, initial_wait_seconds = wait, jitter = FALSE), wait * 1)
+   expect_equal(get_backoff_wait(2, initial_wait_seconds = wait, jitter = FALSE), wait * 3)
+   expect_equal(get_backoff_wait(3, initial_wait_seconds = wait, jitter = FALSE), wait * 9)
+   expect_equal(get_backoff_wait(4, initial_wait_seconds = wait, jitter = FALSE), wait * 27)
 })
 
-test_that("backoff_wait() applies +/- 10% proportional jitter when jitter = TRUE", {
-   set.seed(42)
-   wait1 <- backoff_wait(1, initial_wait_seconds = 10, jitter = TRUE)
+test_that("get_backoff_wait() applies +/- 10% proportional jitter when jitter = TRUE", {
+   # Note: get_backoff_wait() returns the value -- it does not actually sleep.
+   
+   withr::local_seed(42)
+   wait1 <- get_backoff_wait(1, initial_wait_seconds = 10, jitter = TRUE)
    expect_true(wait1 >= 9.0 && wait1 <= 11.0)
-   expect_true(wait1 != 10.0)
+   
+   # There's a very small chance that the jitter will still result
+   # in exactly 10 seconds, so we check 5 times.
+   n <- 4
+   wait <- wait1
+   while (wait == 10 && n > 0) {
+      wait <- get_backoff_wait(1, initial_wait_seconds = 10, jitter = TRUE)
+      n <- n - 1
+   }
+   expect_false(wait == 10)
 })
 
 test_that("retry_on_error() returns the result immediately on success, without retrying", {

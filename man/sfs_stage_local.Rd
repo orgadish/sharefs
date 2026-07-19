@@ -35,14 +35,16 @@ way \code{robocopy} does.
 themselves, not carried through from any prior listing.
 }
 \examples{
-src <- tempfile()
-dir.create(src)
-files <- file.path(src, c("a.txt", "b.txt"))
-file.create(files)
+if (sfs_robocopy_available()) {
+  src <- tempfile()
+  dir.create(src)
+  files <- file.path(src, c("a.txt", "b.txt"))
+  file.create(files)
 
-staged <- sfs_stage_local(files)
-staged
+  staged <- sfs_stage_local(files)
+  staged
 
-sfs_stage_cleanup(staged)
-unlink(src, recursive = TRUE)
+  sfs_stage_cleanup(staged)
+  unlink(src, recursive = TRUE)
+}
 }

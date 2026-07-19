@@ -3,17 +3,14 @@ Title: Fast Filesystem Operations for Network Shares
 Version: 0.1.0
 Authors@R:
     person("Or", "Gadish", email = "orgadish@gmail.com", role = c("aut", "cre", "cph"))
-Description: Batched alternatives to base R's file listing, metadata, and
-    copy functions, built specifically for reading files off an SMB/CIFS
+Description: Alternatives to base R's file listing, metadata, and
+    copy functions, optimized specifically for reading files off an SMB/CIFS
     network share (a mapped network drive or UNC path) on Windows, where
-    each individual file operation -- listing a directory, 'stat()'-ing a
-    file, copying a file -- pays a full network round trip. 'sharefs' uses
-    a single 'PowerShell' 'Get-ChildItem' call to list a directory
-    together with file metadata, and 'robocopy' to stage files locally,
-    instead of one call per file. There is no cross-platform speedup to
-    offer -- 'fs' already covers the general case well -- so this package
-    is Windows-only rather than pretending otherwise; see the 'fs'
-    package for the same operations everywhere else.
+    each individual file operation -- listing a directory, calling
+    'stat()' on a file, copying a file -- pays a full network round trip.
+    'sharefs' uses a single 'Get-ChildItem()' call via 'PowerShell' to
+    list a directory together with file metadata, and 'robocopy' to
+    stage files locally, instead of one call per file.
 License: MIT + file LICENSE
 Encoding: UTF-8
 OS_type: windows
@@ -24,7 +21,6 @@ Imports:
     cli,
     fs,
     processx,
-    rlang (>= 1.1.0),
     stats,
     tibble,
     utils

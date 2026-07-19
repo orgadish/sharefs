@@ -27,16 +27,18 @@
 #' @export
 #'
 #' @examples
-#' src <- tempfile()
-#' dir.create(src)
-#' files <- file.path(src, c("a.txt", "b.txt"))
-#' file.create(files)
+#' if (sfs_robocopy_available()) {
+#'   src <- tempfile()
+#'   dir.create(src)
+#'   files <- file.path(src, c("a.txt", "b.txt"))
+#'   file.create(files)
 #'
-#' staged <- sfs_stage_local(files)
-#' staged
+#'   staged <- sfs_stage_local(files)
+#'   staged
 #'
-#' sfs_stage_cleanup(staged)
-#' unlink(src, recursive = TRUE)
+#'   sfs_stage_cleanup(staged)
+#'   unlink(src, recursive = TRUE)
+#' }
 sfs_stage_local <- function(files, dir = NULL) {
    # Argument validation
    file_paths <- if (is_dir_info_table(files)) files$path else files
@@ -66,7 +68,7 @@ sfs_stage_local <- function(files, dir = NULL) {
          c(
             "{.code robocopy} was not found on the {.envvar PATH}.",
             "i" = "It ships with Windows by default; if it's genuinely
-               missing, this is likely a minimal or locked-down install."
+					missing, this is likely a minimal or locked-down install."
          ),
          class = "sharefs_error_robocopy_unavailable"
       )
@@ -113,6 +115,18 @@ sfs_stage_local <- function(files, dir = NULL) {
 #'
 #' @return `TRUE` (invisibly).
 #' @export
+#'
+#' @examples
+#' if (sfs_robocopy_available()) {
+#'   src <- tempfile()
+#'   dir.create(src)
+#'   files <- file.path(src, c("a.txt", "b.txt"))
+#'   file.create(files)
+#'
+#'   staged <- sfs_stage_local(files)
+#'   sfs_stage_cleanup(staged)
+#'   unlink(src, recursive = TRUE)
+#' }
 sfs_stage_cleanup <- function(staged) {
    dir <- attr(staged, "sharefs_stage_dir")
    if (is.null(dir)) {
@@ -143,9 +157,9 @@ check_no_duplicate_basenames <- function(files) {
       cli::cli_abort(
          c(
             "Staging would overwrite files: two or more {.arg files} share
-         the same base name.",
+			the same base name.",
             "i" = "Staging flattens files into one directory; stage files
-         with the same name separately if you need to keep them apart."
+			with the same name separately if you need to keep them apart."
          ),
          class = "sharefs_error_duplicate_basenames"
       )

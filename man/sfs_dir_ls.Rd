@@ -50,5 +50,7 @@ when only paths are needed, since \code{Get-ChildItem} returns it either
 way.
 }
 \examples{
-sfs_dir_ls(system.file(package = "sharefs"))
+if (sfs_powershell_available()) {
+  sfs_dir_ls(system.file(package = "sharefs"))
+}
 }

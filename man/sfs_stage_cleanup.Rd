@@ -17,3 +17,15 @@ Removes exactly the files \code{sfs_stage_local()} staged. If it also
 created the staging directory itself (rather than being given an
 existing one via \code{dir}), that directory is removed too.
 }
+\examples{
+if (sfs_robocopy_available()) {
+  src <- tempfile()
+  dir.create(src)
+  files <- file.path(src, c("a.txt", "b.txt"))
+  file.create(files)
+
+  staged <- sfs_stage_local(files)
+  sfs_stage_cleanup(staged)
+  unlink(src, recursive = TRUE)
+}
+}

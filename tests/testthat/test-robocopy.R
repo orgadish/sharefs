@@ -44,17 +44,12 @@ test_that("sfs_robocopy() treats files = character(0) as nothing to copy, withou
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) {
+         called <<- TRUE
+         list(status = 0L, stdout = "", stderr = "")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(...) {
-               called <<- TRUE
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = {
-               result <- sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), files = character(0))
-            }
-         )
+         result <- sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), files = character(0))
       }
    )
    
@@ -70,19 +65,14 @@ test_that("sfs_robocopy() omits /XF and /XD entirely for exclude_files/exclude_d
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(
-               withr::local_tempdir(), withr::local_tempdir(),
-               exclude_files = character(0), exclude_dirs = character(0)
-            )
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(
+         withr::local_tempdir(), withr::local_tempdir(),
+         exclude_files = character(0), exclude_dirs = character(0)
+      )
    )
    
    expect_false("/XF" %in% captured)
@@ -95,14 +85,9 @@ test_that("sfs_robocopy() treats exit codes 0-7 as success", {
       
       with_mocked_bindings(
          find_robocopy = function() c(robocopy = "/fake/robocopy"),
+         run_process = function(...) list(status = code, stdout = "", stderr = ""),
          code = {
-            with_mocked_bindings(
-               run = function(...) list(status = code, stdout = "", stderr = ""),
-               .package = "processx",
-               code = {
-                  result <- sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
-               }
-            )
+            result <- sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
          }
       )
       
@@ -114,16 +99,11 @@ test_that("sfs_robocopy() treats exit codes 0-7 as success", {
 test_that("sfs_robocopy() treats exit codes 8+ as failure and aborts by default", {
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) list(status = 8L, stdout = "", stderr = ""),
       code = {
-         with_mocked_bindings(
-            run = function(...) list(status = 8L, stdout = "", stderr = ""),
-            .package = "processx",
-            code = {
-               expect_error(
-                  sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
-                  class = "sharefs_error_robocopy_failed"
-               )
-            }
+         expect_error(
+            sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
+            class = "sharefs_error_robocopy_failed"
          )
       }
    )
@@ -134,16 +114,11 @@ test_that("sfs_robocopy() returns instead of aborting when error_on_failure = FA
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) list(status = 16L, stdout = "", stderr = ""),
       code = {
-         with_mocked_bindings(
-            run = function(...) list(status = 16L, stdout = "", stderr = ""),
-            .package = "processx",
-            code = {
-               result <- sfs_robocopy(
-                  withr::local_tempdir(), withr::local_tempdir(),
-                  error_on_failure = FALSE
-               )
-            }
+         result <- sfs_robocopy(
+            withr::local_tempdir(), withr::local_tempdir(),
+            error_on_failure = FALSE
          )
       }
    )
@@ -157,16 +132,11 @@ test_that("sfs_robocopy() treats a missing exit status as failure, not as succes
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) list(status = NA_integer_, stdout = "", stderr = ""),
       code = {
-         with_mocked_bindings(
-            run = function(...) list(status = NA_integer_, stdout = "", stderr = ""),
-            .package = "processx",
-            code = {
-               result <- sfs_robocopy(
-                  withr::local_tempdir(), withr::local_tempdir(),
-                  error_on_failure = FALSE
-               )
-            }
+         result <- sfs_robocopy(
+            withr::local_tempdir(), withr::local_tempdir(),
+            error_on_failure = FALSE
          )
       }
    )
@@ -177,16 +147,11 @@ test_that("sfs_robocopy() treats a missing exit status as failure, not as succes
 test_that("sfs_robocopy() propagates a processx-level failure (e.g. spawn/timeout) distinctly", {
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) stop("spawn or timeout failure"),
       code = {
-         with_mocked_bindings(
-            run = function(...) stop("spawn or timeout failure"),
-            .package = "processx",
-            code = {
-               expect_error(
-                  sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
-                  class = "sharefs_error_robocopy_execution_failed"
-               )
-            }
+         expect_error(
+            sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
+            class = "sharefs_error_robocopy_execution_failed"
          )
       }
    )
@@ -198,16 +163,11 @@ test_that("sfs_robocopy() surfaces a spawn-failure message containing literal br
    # reference so it's substituted once rather than re-parsed as R code.
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(...) stop("failed near '{some_object}'"),
       code = {
-         with_mocked_bindings(
-            run = function(...) stop("failed near '{some_object}'"),
-            .package = "processx",
-            code = {
-               expect_error(
-                  sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
-                  class = "sharefs_error_robocopy_execution_failed"
-               )
-            }
+         expect_error(
+            sfs_robocopy(withr::local_tempdir(), withr::local_tempdir()),
+            class = "sharefs_error_robocopy_execution_failed"
          )
       }
    )
@@ -218,31 +178,21 @@ test_that("sfs_robocopy() passes timeout through to processx::run(), defaulting 
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ..., timeout) {
-               captured_timeout <<- timeout
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
-         )
-      }
+      run_process = function(command, args, ..., timeout) {
+         captured_timeout <<- timeout
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
    )
    expect_equal(captured_timeout, Inf)
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ..., timeout) {
-               captured_timeout <<- timeout
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), timeout = 300)
-         )
-      }
+      run_process = function(command, args, ..., timeout) {
+         captured_timeout <<- timeout
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), timeout = 300)
    )
    expect_equal(captured_timeout, 300)
 })
@@ -252,16 +202,11 @@ test_that("sfs_robocopy() defaults produce none of the optional flags", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
    )
    
    expect_false(any(c("/E", "/MIR", "/MOVE", "/XF", "/XD", "/L") %in% captured))
@@ -273,16 +218,11 @@ test_that("sfs_robocopy() maps recurse = TRUE to /E", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), recurse = TRUE)
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), recurse = TRUE)
    )
    
    expect_true("/E" %in% captured)
@@ -294,19 +234,14 @@ test_that("sfs_robocopy() maps mirror = TRUE to /MIR, without a redundant /E", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(
-               withr::local_tempdir(), withr::local_tempdir(),
-               mirror = TRUE, recurse = TRUE
-            )
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(
+         withr::local_tempdir(), withr::local_tempdir(),
+         mirror = TRUE, recurse = TRUE
+      )
    )
    
    expect_true("/MIR" %in% captured)
@@ -318,16 +253,11 @@ test_that("sfs_robocopy() maps move = TRUE to /MOVE", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), move = TRUE)
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), move = TRUE)
    )
    
    expect_true("/MOVE" %in% captured)
@@ -338,20 +268,15 @@ test_that("sfs_robocopy() maps exclude_files/exclude_dirs to /XF and /XD", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(
-               withr::local_tempdir(), withr::local_tempdir(),
-               exclude_files = c("*.tmp", "*.log"),
-               exclude_dirs = "node_modules"
-            )
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(
+         withr::local_tempdir(), withr::local_tempdir(),
+         exclude_files = c("*.tmp", "*.log"),
+         exclude_dirs = "node_modules"
+      )
    )
    
    expect_true("/XF" %in% captured)
@@ -366,16 +291,11 @@ test_that("sfs_robocopy() maps dry_run = TRUE to /L", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), dry_run = TRUE)
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), dry_run = TRUE)
    )
    
    expect_true("/L" %in% captured)
@@ -387,18 +307,13 @@ test_that("sfs_robocopy() maps log_file to a single /LOG: token", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = {
-               log_path <- file.path(withr::local_tempdir(), "my log.txt")
-               sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), log_file = log_path)
-            }
-         )
+         log_path <- file.path(withr::local_tempdir(), "my log.txt")
+         sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), log_file = log_path)
       }
    )
    
@@ -410,36 +325,26 @@ test_that("sfs_robocopy() omits /NFL /NDL /NJH /NJS when log_file is set, but al
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = {
-               sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
-            }
-         )
+         sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
       }
    )
    expect_true(all(c("/NFL", "/NDL", "/NJH", "/NJS", "/NP") %in% captured))
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = {
-               sfs_robocopy(
-                  withr::local_tempdir(), withr::local_tempdir(),
-                  log_file = file.path(withr::local_tempdir(), "robocopy.log")
-               )
-            }
+         sfs_robocopy(
+            withr::local_tempdir(), withr::local_tempdir(),
+            log_file = file.path(withr::local_tempdir(), "robocopy.log")
          )
       }
    )
@@ -452,16 +357,11 @@ test_that("sfs_robocopy() formats threads/retries/wait_seconds into /MT, /R, /W"
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(withr::local_tempdir(), withr::local_tempdir())
    )
    expect_true("/MT:8" %in% captured)
    expect_true("/R:5" %in% captured)
@@ -469,19 +369,14 @@ test_that("sfs_robocopy() formats threads/retries/wait_seconds into /MT, /R, /W"
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = sfs_robocopy(
-               withr::local_tempdir(), withr::local_tempdir(),
-               threads = 4, retries = 10, wait_seconds = 1
-            )
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
+      code = sfs_robocopy(
+         withr::local_tempdir(), withr::local_tempdir(),
+         threads = 4, retries = 10, wait_seconds = 1
+      )
    )
    expect_true("/MT:4" %in% captured)
    expect_true("/R:10" %in% captured)
@@ -493,20 +388,15 @@ test_that("sfs_robocopy() passes ... through as additional raw flags", {
    
    with_mocked_bindings(
       find_robocopy = function() c(robocopy = "/fake/robocopy"),
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "", stderr = "")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "", stderr = "")
-            },
-            .package = "processx",
-            code = {
-               # `...` sits right after `destination` in sfs_robocopy()'s signature
-               # specifically so this works: extra raw flags can be passed
-               # positionally, without needing to name every argument in between.
-               sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), "/SEC", "/MAXAGE:30")
-            }
-         )
+         # `...` sits right after `destination` in sfs_robocopy()'s signature
+         # specifically so this works: extra raw flags can be passed
+         # positionally, without needing to name every argument in between.
+         sfs_robocopy(withr::local_tempdir(), withr::local_tempdir(), "/SEC", "/MAXAGE:30")
       }
    )
    

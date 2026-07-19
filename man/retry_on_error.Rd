@@ -21,7 +21,7 @@ are treated as 1 -- \code{action()} always runs at least once.}
 \item{initial_wait_seconds}{Baseline backoff time.}
 
 \item{jitter}{Logical. If \code{TRUE} (default), randomizes the sleep
-intervals; see \code{\link[=backoff_wait]{backoff_wait()}}.}
+intervals; see \code{\link[=get_backoff_wait]{get_backoff_wait()}}.}
 
 \item{retryable}{A function taking the caught error condition and
 returning \code{TRUE} if it's worth retrying, \code{FALSE} if it's certain to

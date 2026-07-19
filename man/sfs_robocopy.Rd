@@ -80,17 +80,18 @@ else can be passed via \code{...}, e.g. \code{sfs_robocopy(src, dst, "/SEC")}. S
 \verb{robocopy /?} for the full flag reference.
 }
 \examples{
+if (sfs_robocopy_available() && sfs_powershell_available()) {
+  src <- tempfile()
+  dir.create(src)
 
-src <- tempfile()
-dir.create(src)
+  write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
 
-write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
+  dest <- tempfile()
+  sfs_robocopy(src, dest)
+  sfs_dir_info(dest)
 
-dest <- tempfile()
-sfs_robocopy(src, dest)
-sfs_dir_info(dest)
-
-fs::dir_delete(c(src, dest))
+  fs::dir_delete(c(src, dest))
+}
 }
 \seealso{
 \code{\link[=sfs_robocopy_available]{sfs_robocopy_available()}}, which checks if robocopy is available

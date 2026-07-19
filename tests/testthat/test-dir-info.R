@@ -98,6 +98,8 @@ test_that("sfs_dir_info() deduplicates path before listing, avoiding redundant w
 })
 
 test_that("sfs_dir_info() defaults path to the current working directory", {
+   skip_if_not(sfs_powershell_available())
+   
    dir <- withr::local_tempdir()
    file.create(file.path(dir, "a.txt"))
    withr::local_dir(dir)

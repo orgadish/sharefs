@@ -60,7 +60,9 @@ skipped (e.g. a permission-denied subfolder).
 Automatically includes retry logic if an intermittent error is encountered.
 }
 \examples{
-sfs_dir_info(system.file(package = "sharefs"))
+if (sfs_powershell_available()) {
+  sfs_dir_info(system.file(package = "sharefs"))
+}
 }
 \seealso{
 \code{\link[=sfs_powershell_available]{sfs_powershell_available()}} which checks if Powershell is

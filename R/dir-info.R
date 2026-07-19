@@ -4,19 +4,19 @@
 #' Lists files and metadata in a single network round trip, using
 #' PowerShell's `Get-ChildItem` instead of one `stat()` per file.
 #'
-#' This is similar to [fs::dir_info()], but not identical. 
-#' 
-#' The output includes only the subset of the columns that are available via 
-#' `Get-ChildItem`: `path`, `type`, `size`, `modification_time`, `access_time`, 
+#' This is similar to [fs::dir_info()], but not identical.
+#'
+#' The output includes only the subset of the columns that are available via
+#' `Get-ChildItem`: `path`, `type`, `size`, `modification_time`, `access_time`,
 #' `birth_time`. Unlike [fs::dir_info()], it will return partial results with
-#' a `sharefs_warning_powershell_partial` warning if some items had to be 
+#' a `sharefs_warning_powershell_partial` warning if some items had to be
 #' skipped (e.g. a permission-denied subfolder).
 #'
 #' Automatically includes retry logic if an intermittent error is encountered.
 #'
 #' @param path A character vector of one or more paths.
 #' @param all If `TRUE` hidden files are also returned.
-#' @param recurse Whether to recurse into subdirectories. Depth-limited 
+#' @param recurse Whether to recurse into subdirectories. Depth-limited
 #'    recursion is not supported.
 #' @param type File type(s) to return, one or more of "any", "file",
 #'   "directory", "symlink", "FIFO", "socket", "character_device" or
@@ -32,14 +32,16 @@
 #'
 #' @return A tibble with columns `path`, `type`, `size`,
 #'   `modification_time`, `access_time`, `birth_time`.
-#'   
-#' @seealso [sfs_powershell_available()] which checks if Powershell is 
+#'
+#' @seealso [sfs_powershell_available()] which checks if Powershell is
 #'    available and accessible.
-#'    
+#'
 #' @export
 #'
 #' @examples
-#' sfs_dir_info(system.file(package = "sharefs"))
+#' if (sfs_powershell_available()) {
+#'   sfs_dir_info(system.file(package = "sharefs"))
+#' }
 sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
                          regexp = NULL, glob = NULL, invert = FALSE,
                          fail = TRUE, ...) {
@@ -84,13 +86,13 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
          c(
             "PowerShell is not available on this device.",
             "i" = "Use {.fn fs::dir_info} instead -- it accepts the same
-               {.arg type}/{.arg regexp}/{.arg glob}/{.arg invert}
-               filtering natively, with a superset of this function's
-               columns.",
+					{.arg type}/{.arg regexp}/{.arg glob}/{.arg invert}
+					filtering natively, with a superset of this function's
+					columns.",
             "i" = "If you've just made PowerShell available (e.g. an
-               AppLocker/WDAC exception), just try again --
-               {.fn sfs_powershell_available} always rechecks after a
-               {.val FALSE} result."
+					AppLocker/WDAC exception), just try again --
+					{.fn sfs_powershell_available} always rechecks after a
+					{.val FALSE} result."
          ),
          class = "sharefs_error_powershell_unavailable"
       )
@@ -119,7 +121,9 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
 #' @export
 #'
 #' @examples
-#' sfs_dir_ls(system.file(package = "sharefs"))
+#' if (sfs_powershell_available()) {
+#'   sfs_dir_ls(system.file(package = "sharefs"))
+#' }
 sfs_dir_ls <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
                        regexp = NULL, glob = NULL, invert = FALSE,
                        fail = TRUE, ...) {
@@ -128,5 +132,5 @@ sfs_dir_ls <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
       regexp = regexp, glob = glob, invert = invert, fail = fail, ...
    )$path
    
-   setNames(paths, paths)
+   stats::setNames(paths, paths)
 }

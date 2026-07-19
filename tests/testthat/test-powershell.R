@@ -85,20 +85,17 @@ test_that("check_powershell_usable() requires both status 0 and stdout '1'", {
       find_powershell = function() c(powershell = "/fake/powershell"),
       code = {
          with_mocked_bindings(
-            run = function(...) list(status = 0L, stdout = "1\n", stderr = ""),
-            .package = "processx",
+            run_process = function(...) list(status = 0L, stdout = "1\n", stderr = ""),
             code = expect_true(check_powershell_usable())
          )
          
          with_mocked_bindings(
-            run = function(...) list(status = 1L, stdout = "", stderr = "blocked by policy"),
-            .package = "processx",
+            run_process = function(...) list(status = 1L, stdout = "", stderr = "blocked by policy"),
             code = expect_false(check_powershell_usable())
          )
          
          with_mocked_bindings(
-            run = function(...) list(status = 0L, stdout = "not 1", stderr = ""),
-            .package = "processx",
+            run_process = function(...) list(status = 0L, stdout = "not 1", stderr = ""),
             code = expect_false(check_powershell_usable())
          )
       }
@@ -108,13 +105,8 @@ test_that("check_powershell_usable() requires both status 0 and stdout '1'", {
 test_that("check_powershell_usable() returns FALSE, not an error, if processx itself throws", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
-      code = {
-         with_mocked_bindings(
-            run = function(...) stop("spawn failed"),
-            .package = "processx",
-            code = expect_false(check_powershell_usable())
-         )
-      }
+      run_process = function(...) stop("spawn failed"),
+      code = expect_false(check_powershell_usable())
    )
 })
 
@@ -123,16 +115,11 @@ test_that("check_powershell_usable() returns FALSE without spawning anything if 
    
    with_mocked_bindings(
       find_powershell = function() c(powershell = ""),
-      code = {
-         with_mocked_bindings(
-            run = function(...) {
-               spawned <<- TRUE
-               list(status = 0L, stdout = "1", stderr = "")
-            },
-            .package = "processx",
-            code = expect_false(check_powershell_usable())
-         )
-      }
+      run_process = function(...) {
+         spawned <<- TRUE
+         list(status = 0L, stdout = "1", stderr = "")
+      },
+      code = expect_false(check_powershell_usable())
    )
    
    expect_false(spawned)
@@ -278,16 +265,11 @@ test_that("run_powershell() constructs the expected processx::run() call", {
    
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- list(command = command, args = args)
-               list(status = 0L, stdout = "output", stderr = "")
-            },
-            .package = "processx",
-            code = run_powershell(c("line1", "line2"))
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- list(command = command, args = args)
+         list(status = 0L, stdout = "output", stderr = "")
+      },
+      code = run_powershell(c("line1", "line2"))
    )
    
    expect_equal(captured$command, c(powershell = "/fake/powershell"))
@@ -310,16 +292,11 @@ test_that("run_powershell() prepends a UTF-8 output-encoding preamble", {
    
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ...) {
-               captured <<- args
-               list(status = 0L, stdout = "output", stderr = "")
-            },
-            .package = "processx",
-            code = run_powershell("some-command")
-         )
-      }
+      run_process = function(command, args, ...) {
+         captured <<- args
+         list(status = 0L, stdout = "output", stderr = "")
+      },
+      code = run_powershell("some-command")
    )
    
    script_arg <- captured[length(captured)]
@@ -337,14 +314,9 @@ test_that("run_powershell() prepends a UTF-8 output-encoding preamble", {
 test_that("run_powershell() errors on a non-zero exit status", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) list(status = 1L, stdout = "", stderr = "some error output"),
       code = {
-         with_mocked_bindings(
-            run = function(...) list(status = 1L, stdout = "", stderr = "some error output"),
-            .package = "processx",
-            code = {
-               expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_failed")
-            }
-         )
+         expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_failed")
       }
    )
 })
@@ -352,14 +324,9 @@ test_that("run_powershell() errors on a non-zero exit status", {
 test_that("run_powershell() returns the script's output on success", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) list(status = 0L, stdout = "a\nb", stderr = ""),
       code = {
-         with_mocked_bindings(
-            run = function(...) list(status = 0L, stdout = "a\nb", stderr = ""),
-            .package = "processx",
-            code = {
-               expect_equal(run_powershell("some-command"), c("a", "b"))
-            }
-         )
+         expect_equal(run_powershell("some-command"), c("a", "b"))
       }
    )
 })
@@ -371,20 +338,15 @@ test_that("run_powershell() does NOT treat status 0 with non-empty stderr as a f
    # mostly-complete listing.
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) {
+         list(status = 0L, stdout = "a\nb", stderr = "Access to the path 'X' is denied.")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(...) {
-               list(status = 0L, stdout = "a\nb", stderr = "Access to the path 'X' is denied.")
-            },
-            .package = "processx",
-            code = {
-               expect_warning(
-                  result <- run_powershell("some-command"),
-                  class = "sharefs_warning_powershell_partial"
-               )
-               expect_equal(result, c("a", "b"))
-            }
+         expect_warning(
+            result <- run_powershell("some-command"),
+            class = "sharefs_warning_powershell_partial"
          )
+         expect_equal(result, c("a", "b"))
       }
    )
 })
@@ -397,16 +359,11 @@ test_that("run_powershell() passes a timeout to processx::run() so a hung call c
    
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
-      code = {
-         with_mocked_bindings(
-            run = function(command, args, ..., timeout) {
-               captured_timeout <<- timeout
-               list(status = 0L, stdout = "output", stderr = "")
-            },
-            .package = "processx",
-            code = run_powershell("some-command")
-         )
-      }
+      run_process = function(command, args, ..., timeout) {
+         captured_timeout <<- timeout
+         list(status = 0L, stdout = "output", stderr = "")
+      },
+      code = run_powershell("some-command")
    )
    
    expect_true(is.numeric(captured_timeout) && captured_timeout > 0)
@@ -420,20 +377,15 @@ test_that("run_powershell() surfaces stderr containing literal braces without er
    # rather than re-parsed as R code.
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) {
+         list(status = 0L, stdout = "a", stderr = "error near '{some_object}' in path")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(...) {
-               list(status = 0L, stdout = "a", stderr = "error near '{some_object}' in path")
-            },
-            .package = "processx",
-            code = {
-               expect_warning(
-                  result <- run_powershell("some-command"),
-                  class = "sharefs_warning_powershell_partial"
-               )
-               expect_equal(result, "a")
-            }
+         expect_warning(
+            result <- run_powershell("some-command"),
+            class = "sharefs_warning_powershell_partial"
          )
+         expect_equal(result, "a")
       }
    )
 })
@@ -441,16 +393,11 @@ test_that("run_powershell() surfaces stderr containing literal braces without er
 test_that("run_powershell() surfaces a failure message containing literal braces without erroring", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) {
+         list(status = 1L, stdout = "", stderr = "error near '{some_object}' in path")
+      },
       code = {
-         with_mocked_bindings(
-            run = function(...) {
-               list(status = 1L, stdout = "", stderr = "error near '{some_object}' in path")
-            },
-            .package = "processx",
-            code = {
-               expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_failed")
-            }
-         )
+         expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_failed")
       }
    )
 })
@@ -458,14 +405,9 @@ test_that("run_powershell() surfaces a failure message containing literal braces
 test_that("run_powershell() propagates a processx-level failure (e.g. spawn/timeout) distinctly", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) stop("spawn or timeout failure"),
       code = {
-         with_mocked_bindings(
-            run = function(...) stop("spawn or timeout failure"),
-            .package = "processx",
-            code = {
-               expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_execution_failed")
-            }
-         )
+         expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_execution_failed")
       }
    )
 })
@@ -473,14 +415,9 @@ test_that("run_powershell() propagates a processx-level failure (e.g. spawn/time
 test_that("run_powershell() surfaces a spawn-failure message containing literal braces without erroring", {
    with_mocked_bindings(
       find_powershell = function() c(powershell = "/fake/powershell"),
+      run_process = function(...) stop("failed near '{some_object}'"),
       code = {
-         with_mocked_bindings(
-            run = function(...) stop("failed near '{some_object}'"),
-            .package = "processx",
-            code = {
-               expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_execution_failed")
-            }
-         )
+         expect_error(run_powershell("some-command"), class = "sharefs_error_powershell_execution_failed")
       }
    )
 })

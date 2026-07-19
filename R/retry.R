@@ -15,15 +15,15 @@
 #'   wait times (e.g. in tests).
 #'
 #' @return A single numeric number of seconds.
-backoff_wait <- function(attempt,
-                         initial_wait_seconds = 0.05,
-                         backoff_factor = 3,
-                         jitter = TRUE) {
-   wait <- initial_wait_seconds * backoff_factor^(attempt - 1)
-   if (jitter) {
-      wait <- wait * stats::runif(1, 0.9, 1.1)
-   }
-   wait
+get_backoff_wait <- function(attempt,
+                             initial_wait_seconds = 0.05,
+                             backoff_factor = 3,
+                             jitter = TRUE) {
+   (
+      initial_wait_seconds 
+      * backoff_factor^(attempt - 1)
+      * (if (jitter) stats::runif(1, 0.9, 1.1) else 1)
+   )
 }
 
 #' Retry an action if it throws an error
@@ -38,7 +38,7 @@ backoff_wait <- function(attempt,
 #'   are treated as 1 -- `action()` always runs at least once.
 #' @param initial_wait_seconds Baseline backoff time.
 #' @param jitter Logical. If `TRUE` (default), randomizes the sleep
-#'   intervals; see [backoff_wait()].
+#'   intervals; see [get_backoff_wait()].
 #' @param retryable A function taking the caught error condition and
 #'   returning `TRUE` if it's worth retrying, `FALSE` if it's certain to
 #'   fail again no matter how many times it's retried (e.g. a permission
@@ -66,7 +66,7 @@ retry_on_error <- function(action,
       }
       
       if (i < retries) {
-         Sys.sleep(backoff_wait(i, initial_wait_seconds, jitter = jitter))
+         Sys.sleep(get_backoff_wait(i, initial_wait_seconds, jitter = jitter))
       }
    }
    

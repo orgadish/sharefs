@@ -62,21 +62,22 @@ find_robocopy <- function() {
 #'   (`status < 8`).
 #' @seealso [sfs_robocopy_available()], which checks if robocopy is available
 #'   on this system.
-#'   
+#'
 #' @export
-#' 
+#'
 #' @examples
-#' 
-#' src <- tempfile()
-#' dir.create(src)
-#' 
-#' write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
-#' 
-#' dest <- tempfile()
-#' sfs_robocopy(src, dest)
-#' sfs_dir_info(dest)
-#' 
-#' fs::dir_delete(c(src, dest))
+#' if (sfs_robocopy_available() && sfs_powershell_available()) {
+#'   src <- tempfile()
+#'   dir.create(src)
+#'
+#'   write.csv(data.frame(x = 1:2), fs::path(src, "a.csv"), row.names = FALSE)
+#'
+#'   dest <- tempfile()
+#'   sfs_robocopy(src, dest)
+#'   sfs_dir_info(dest)
+#'
+#'   fs::dir_delete(c(src, dest))
+#' }
 sfs_robocopy <- function(source, destination, ...,
                          files = NULL,
                          recurse = FALSE, mirror = FALSE, move = FALSE,
@@ -97,7 +98,7 @@ sfs_robocopy <- function(source, destination, ...,
          c(
             "{.code robocopy} was not found on the {.envvar PATH}.",
             "i" = "It ships with Windows by default; if it's genuinely
-               missing, this is likely a minimal or locked-down install."
+					missing, this is likely a minimal or locked-down install."
          ),
          class = "sharefs_error_robocopy_unavailable"
       )
@@ -142,10 +143,9 @@ sfs_robocopy <- function(source, destination, ...,
    )
    
    res <- tryCatch(
-      processx::run(
+      run_process(
          command = exe,
          args = args,
-         error_on_status = FALSE,
          timeout = timeout
       ),
       error = function(e) {
@@ -171,7 +171,7 @@ sfs_robocopy <- function(source, destination, ...,
       cli::cli_abort(
          c(
             "{.code robocopy} failed copying from {.path {source}} to
-         {.path {destination}}, even after retrying.",
+			{.path {destination}}, even after retrying.",
             "i" = "Exit code: {status}"
          ),
          class = "sharefs_error_robocopy_failed"

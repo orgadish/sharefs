@@ -14,7 +14,7 @@ sharefs_powershell_cache_ttl <- function() {
 #' Check whether a usable PowerShell executable is available
 #'
 #' @description
-#' Looks for `pwsh` or `powershell` and runs a lightweight smoke test 
+#' Looks for `pwsh` or `powershell` and runs a lightweight smoke test
 #' (`Write-Output 1`) to confirm it can actually run (it may exist, but be
 #' blocked from running).
 #'
@@ -52,14 +52,13 @@ check_powershell_usable <- function() {
    
    tryCatch(
       {
-         res <- processx::run(
+         res <- run_process(
             command = exe,
             args = c(
                "-NoProfile", "-NonInteractive",
                "-ExecutionPolicy", "Bypass",
                "-Command", "Write-Output 1"
             ),
-            error_on_status = FALSE,
             timeout = 3
          )
          identical(res$status, 0L) && identical(trimws(res$stdout), "1")
@@ -109,7 +108,7 @@ run_powershell <- function(script_lines) {
          c(
             "The PowerShell command for this call is too long to run.",
             "i" = "Windows limits a process's total command line length --
-               try calling this with fewer or shorter paths at once."
+					try calling this with fewer or shorter paths at once."
          ),
          class = "sharefs_error_command_too_long"
       )
@@ -128,10 +127,9 @@ run_powershell <- function(script_lines) {
    # can't freeze the R session indefinitely; stdout/stderr come back
    # cleanly separated and correctly decoded.
    res <- tryCatch(
-      processx::run(
+      run_process(
          command = exe,
          args = args,
-         error_on_status = FALSE,
          timeout = 30,
          encoding = "UTF-8"
       ),
@@ -181,7 +179,7 @@ run_powershell <- function(script_lines) {
          c(
             "PowerShell reported non-fatal warnings while listing.",
             "i" = "The listing still completed; this may mean some items
-               (e.g. a permission-denied subfolder) were skipped.",
+					(e.g. a permission-denied subfolder) were skipped.",
             "x" = "{partial_stderr}"
          ),
          class = "sharefs_warning_powershell_partial"
