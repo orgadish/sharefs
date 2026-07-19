@@ -19,11 +19,11 @@ get_backoff_wait <- function(attempt,
                              initial_wait_seconds = 0.05,
                              backoff_factor = 3,
                              jitter = TRUE) {
-   (
-      initial_wait_seconds 
-      * backoff_factor^(attempt - 1)
+  (
+    initial_wait_seconds
+    * backoff_factor^(attempt - 1)
       * (if (jitter) stats::runif(1, 0.9, 1.1) else 1)
-   )
+  )
 }
 
 #' Retry an action if it throws an error
@@ -52,25 +52,25 @@ retry_on_error <- function(action,
                            initial_wait_seconds = 0.05,
                            jitter = TRUE,
                            retryable = function(e) TRUE) {
-   retries <- max(1L, as.integer(retries))
-   
-   for (i in seq_len(retries)) {
-      result <- tryCatch(list(value = action()), error = function(e) e)
-      
-      if (!inherits(result, "error")) {
-         return(result$value)
-      }
-      
-      if (!isTRUE(retryable(result))) {
-         break
-      }
-      
-      if (i < retries) {
-         Sys.sleep(get_backoff_wait(i, initial_wait_seconds, jitter = jitter))
-      }
-   }
-   
-   # Propagate the last caught error object directly, preserving its
-   # original class/attributes rather than re-wrapping it.
-   stop(result)
+  retries <- max(1L, as.integer(retries))
+
+  for (i in seq_len(retries)) {
+    result <- tryCatch(list(value = action()), error = function(e) e)
+
+    if (!inherits(result, "error")) {
+      return(result$value)
+    }
+
+    if (!isTRUE(retryable(result))) {
+      break
+    }
+
+    if (i < retries) {
+      Sys.sleep(get_backoff_wait(i, initial_wait_seconds, jitter = jitter))
+    }
+  }
+
+  # Propagate the last caught error object directly, preserving its
+  # original class/attributes rather than re-wrapping it.
+  stop(result)
 }
