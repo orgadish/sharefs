@@ -31,7 +31,7 @@
 #' @param ... Passed to [grepl()] (e.g. `ignore.case = TRUE`).
 #'
 #' @return A data.frame with columns `path`, `type`, `size`,
-#'   `modification_time`, `access_time`, `birth_time` (or `tibble` 
+#'   `modification_time`, `access_time`, `birth_time` (or `tibble`
 #'   if installed).
 #'
 #' @seealso [sfs_powershell_available()] which checks if Powershell is

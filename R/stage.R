@@ -24,7 +24,7 @@
 #'   `modification_time` (or `tibble` if installed). The staging directory
 #'   is attached as the `"sharefs_stage_dir"` attribute, so that the whole data
 #'   frame can be passed to [sfs_stage_cleanup()] for cleanup.
-#'   
+#'
 #' @export
 #'
 #' @examples
