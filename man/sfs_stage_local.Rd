@@ -16,10 +16,10 @@ given, \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} will only remove th
 there, not the directory itself or anything else already in it.}
 }
 \value{
-A tibble with columns \code{path}, \code{local_path}, \code{size}, and
-\code{modification_time}. The staging directory is attached as the
-\code{"sharefs_stage_dir"} attribute -- pass the result to
-\code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} when done.
+A data.frame with columns \code{path}, \code{local_path}, \code{size}, and
+\code{modification_time} (or \code{tibble} if installed). The staging directory
+is attached as the \code{"sharefs_stage_dir"} attribute, so that the whole data
+frame can be passed to \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} for cleanup.
 }
 \description{
 Copies \code{files} to a local directory using \code{robocopy} (multi-threaded,

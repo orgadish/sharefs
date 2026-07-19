@@ -42,7 +42,7 @@ resolve_dir_info_pattern <- function(regexp, glob) {
 }
 
 empty_dir_info <- function() {
-  tibble::tibble(
+  tibble_or_df(
     path = character(0),
     type = factor(character(0), levels = dir_info_type_levels()),
     size = double(0),
@@ -157,7 +157,7 @@ dir_info_powershell <- function(path, all, recurse) {
 
   parse_time <- function(x) as.POSIXct(x, format = "%Y-%m-%d %H:%M:%S")
 
-  tibble::tibble(
+  tibble_or_df(
     path = fs::as_fs_path(parsed$FullName),
     type = factor(parsed$Type, levels = dir_info_type_levels()),
     size = fs::as_fs_bytes(as.double(parsed$Length)),

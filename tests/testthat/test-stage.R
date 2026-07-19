@@ -175,7 +175,7 @@ test_that("sfs_stage_local() copies files and returns local paths", {
 
   staged <- sfs_stage_local(files)
 
-  expect_s3_class(staged, "tbl_df")
+  expect_s3_class(staged, "data.frame")
   expect_equal(staged$path, files)
   expect_true(all(file.exists(staged$local_path)))
   expect_equal(

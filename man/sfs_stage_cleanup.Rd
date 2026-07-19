@@ -7,7 +7,7 @@
 sfs_stage_cleanup(staged)
 }
 \arguments{
-\item{staged}{The tibble returned by \code{\link[=sfs_stage_local]{sfs_stage_local()}}.}
+\item{staged}{The data.frame (or tibble) returned by \code{\link[=sfs_stage_local]{sfs_stage_local()}}.}
 }
 \value{
 \code{TRUE} (invisibly).

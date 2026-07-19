@@ -42,8 +42,9 @@ cannot be accessed.}
 \item{...}{Passed to \code{\link[=grepl]{grepl()}} (e.g. \code{ignore.case = TRUE}).}
 }
 \value{
-A tibble with columns \code{path}, \code{type}, \code{size},
-\code{modification_time}, \code{access_time}, \code{birth_time}.
+A data.frame with columns \code{path}, \code{type}, \code{size},
+\code{modification_time}, \code{access_time}, \code{birth_time} (or \code{tibble}
+if installed).
 }
 \description{
 Lists files and metadata in a single network round trip, using

@@ -20,10 +20,11 @@
 #'   given, [sfs_stage_cleanup()] will only remove the files it staged
 #'   there, not the directory itself or anything else already in it.
 #'
-#' @return A tibble with columns `path`, `local_path`, `size`, and
-#'   `modification_time`. The staging directory is attached as the
-#'   `"sharefs_stage_dir"` attribute -- pass the result to
-#'   [sfs_stage_cleanup()] when done.
+#' @return A data.frame with columns `path`, `local_path`, `size`, and
+#'   `modification_time` (or `tibble` if installed). The staging directory
+#'   is attached as the `"sharefs_stage_dir"` attribute, so that the whole data
+#'   frame can be passed to [sfs_stage_cleanup()] for cleanup.
+#'   
 #' @export
 #'
 #' @examples
@@ -42,14 +43,14 @@
 sfs_stage_local <- function(files, dir = NULL) {
   # Argument validation
   file_paths <- if (is_dir_info_table(files)) files$path else files
-  
+
   if (length(file_paths) == 0) {
     cli::cli_abort(
       "{.arg files} must contain at least one path.",
       class = "sharefs_error_no_files"
     )
   }
-  
+
   missing <- file_paths[!fs::file_exists(file_paths)]
   if (length(missing) > 0) {
     cli::cli_abort(
@@ -60,9 +61,9 @@ sfs_stage_local <- function(files, dir = NULL) {
       class = "sharefs_error_missing_files"
     )
   }
-  
+
   check_no_duplicate_basenames(file_paths)
-  
+
   if (!sfs_robocopy_available()) {
     cli::cli_abort(
       c(
@@ -73,7 +74,7 @@ sfs_stage_local <- function(files, dir = NULL) {
       class = "sharefs_error_robocopy_unavailable"
     )
   }
-  
+
   # Stage the files. Whether sharefs created `dir` itself is tracked so
   # sfs_stage_cleanup() knows whether it's safe to remove the directory
   # itself, not just the files placed in it -- an existing directory the
@@ -86,19 +87,19 @@ sfs_stage_local <- function(files, dir = NULL) {
     fs::dir_create(dir, recurse = TRUE)
     dir_created_by_us <- TRUE
   }
-  
+
   local_paths <- stage_local_robocopy(file_paths, dir)
-  
+
   # Build the result
   local_info <- fs::file_info(local_paths)
-  
-  out <- tibble::tibble(
+
+  out <- tibble_or_df(
     path = file_paths,
     local_path = local_paths,
     size = as.double(local_info$size),
     modification_time = local_info$modification_time
   )
-  
+
   attr(out, "sharefs_stage_dir") <- dir
   attr(out, "sharefs_stage_dir_created") <- dir_created_by_us
   out
@@ -111,7 +112,7 @@ sfs_stage_local <- function(files, dir = NULL) {
 #' created the staging directory itself (rather than being given an
 #' existing one via `dir`), that directory is removed too.
 #'
-#' @param staged The tibble returned by [sfs_stage_local()].
+#' @param staged The data.frame (or tibble) returned by [sfs_stage_local()].
 #'
 #' @return `TRUE` (invisibly).
 #' @export
@@ -138,16 +139,16 @@ sfs_stage_cleanup <- function(staged) {
       class = "sharefs_error_not_staged"
     )
   }
-  
+
   # unlink(), not fs::file_delete()/dir_delete(): those error if the
   # path is already gone, which would make cleanup less tolerant of
   # being called twice or after a partial failure.
   unlink(staged$local_path)
-  
+
   if (isTRUE(attr(staged, "sharefs_stage_dir_created"))) {
     unlink(dir, recursive = TRUE)
   }
-  
+
   invisible(TRUE)
 }
 
@@ -174,10 +175,10 @@ check_no_duplicate_basenames <- function(files) {
 stage_local_robocopy <- function(files, dir) {
   files <- to_windows_path(files)
   local_paths <- file.path(dir, fs::path_file(files))
-  
+
   file_dirs <- fs::path_dir(files)
   group_key <- tolower(file_dirs)
-  
+
   for (key in unique(group_key)) {
     in_group <- group_key == key
     sfs_robocopy(
@@ -185,6 +186,6 @@ stage_local_robocopy <- function(files, dir) {
       files = as.character(fs::path_file(files[in_group]))
     )
   }
-  
+
   local_paths
 }

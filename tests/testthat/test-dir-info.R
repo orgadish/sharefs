@@ -383,7 +383,7 @@ test_that("sfs_dir_info() lists real files and directories with correct metadata
 
   info <- sfs_dir_info(c(dir1, dir2)) # path vectorization: one real call
 
-  expect_s3_class(info, "tbl_df")
+  expect_s3_class(info, "data.frame")
   expect_equal(
     names(info),
     c("path", "type", "size", "modification_time", "access_time", "birth_time")
