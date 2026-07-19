@@ -301,7 +301,7 @@ test_that("run_powershell() prepends a UTF-8 output-encoding preamble", {
 
   script_arg <- captured[length(captured)]
   expect_true(grepl(
-    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+    "$OutputEncoding = [System.Text.Encoding]::UTF8",
     script_arg,
     fixed = TRUE
   ))

@@ -93,7 +93,7 @@ run_powershell <- function(script_lines) {
   # OEM/ANSI codepage when redirected, mangling non-ASCII output.
   # PowerShell 7+ already defaults to UTF-8, so this is a no-op there.
   script <- paste(
-    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+    "$OutputEncoding = [System.Text.Encoding]::UTF8",
     paste(script_lines, collapse = "\n"),
     sep = "\n"
   )
