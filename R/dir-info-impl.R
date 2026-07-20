@@ -106,7 +106,7 @@ is_permission_error <- function(e) {
 
 # Primary (and only) backend: one Get-ChildItem call across every path in
 # `path`, returning metadata for every entry from a single request.
-dir_info_powershell <- function(path, all, recurse) {
+dir_info_powershell <- function(path, all, recurse, timeout = 120) {
   # path_abs(), path_norm(), and gsub() (inside to_windows_path()) are all
   # vectorized over the whole path vector, so a single call handles every
   # path at once.
@@ -129,7 +129,7 @@ dir_info_powershell <- function(path, all, recurse) {
     paste(
       "$items | Select-Object FullName,",
       "@{Name='Type';Expression={",
-      "if ($_.LinkType) {'symlink'}",
+      "if ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {'symlink'}",
       "elseif ($_.PSIsContainer) {'directory'}",
       "else {'file'} }},",
       "Length,",
@@ -143,14 +143,22 @@ dir_info_powershell <- function(path, all, recurse) {
     )
   )
 
-  csv_lines <- run_powershell(lines)
+  csv_lines <- run_powershell(lines, timeout = timeout)
 
   if (length(csv_lines) <= 1) {
     return(empty_dir_info())
   }
 
+  # textConnection(), not paste(csv_lines, collapse = "\n"): read.csv()
+  # accepts a multi-element character vector directly this way, so
+  # there's no need to rejoin what run_powershell() just split apart --
+  # avoids doubling the memory footprint of the raw CSV text for large
+  # listings.
+  con <- textConnection(csv_lines)
+  on.exit(close(con), add = TRUE)
+
   parsed <- utils::read.csv(
-    text = paste(csv_lines, collapse = "\n"),
+    file = con,
     stringsAsFactors = FALSE,
     colClasses = "character"
   )
