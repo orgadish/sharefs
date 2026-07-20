@@ -25,11 +25,34 @@ test_that("is_dir_info_table() rejects non-data.frame input", {
   expect_false(is_dir_info_table(NULL))
 })
 
-test_that("sfs_stage_local() requires existing files", {
+test_that("sfs_stage_local() errors clearly on a missing file, detected after the copy attempt rather than beforehand", {
+  skip_if_not(sfs_robocopy_available())
+
   expect_error(
     sfs_stage_local(tempfile()),
     class = "sharefs_error_missing_files"
   )
+})
+
+test_that("sfs_stage_local() identifies specifically which files are missing, not just that some are, when some exist and some don't", {
+  skip_if_not(sfs_robocopy_available())
+
+  src <- withr::local_tempdir()
+  real_file <- file.path(src, "real.txt")
+  missing_file <- file.path(src, "does-not-exist.txt")
+  writeLines("hello", real_file)
+
+  err <- tryCatch(
+    sfs_stage_local(c(real_file, missing_file)),
+    sharefs_error_missing_files = function(e) e
+  )
+
+  expect_s3_class(err, "sharefs_error_missing_files")
+  # basename() rather than the full path: the message displays paths in
+  # fs's normalized (forward-slash) form, same as elsewhere in this
+  # suite, not the raw platform-native string file.path() produced.
+  expect_true(grepl(basename(missing_file), conditionMessage(err), fixed = TRUE))
+  expect_false(grepl(basename(real_file), conditionMessage(err), fixed = TRUE))
 })
 
 test_that("sfs_stage_local() supports duplicate basenames in different source directories, on a real Windows machine", {

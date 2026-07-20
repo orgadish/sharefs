@@ -7,8 +7,8 @@
 #' and `robocopy` is run multi-threaded, grouped by source directory so 
 #' each directory is one call. 
 #'
-#' @param files A character vector of existing file paths to stage, or
-#'   the output of [sfs_dir_info()].
+#' @param files A character vector of file paths to stage, or the
+#'   output of [sfs_dir_info()].
 #' @param dir The local directory to copy files into. If `NULL` (default),
 #'   a new temporary directory is created. If an existing directory is
 #'   given, [sfs_stage_cleanup()] will only remove the files/subdirectories 
@@ -45,17 +45,6 @@ sfs_stage_local <- function(files, dir = NULL) {
     )
   }
 
-  missing <- file_paths[!fs::file_exists(file_paths)]
-  if (length(missing) > 0) {
-    cli::cli_abort(
-      c(
-        "Some {.arg files} do not exist.",
-        "x" = "Missing: {.path {missing}}"
-      ),
-      class = "sharefs_error_missing_files"
-    )
-  }
-
   if (!sfs_robocopy_available()) {
     cli::cli_abort(
       c(
@@ -80,6 +69,21 @@ sfs_stage_local <- function(files, dir = NULL) {
   }
 
   local_paths <- stage_local_robocopy(file_paths, dir)
+
+  # A missing/inaccessible source file just means robocopy never
+  # created its local copy -- checking that locally afterward, rather
+  # than checking every source file exists beforehand, gets the same
+  # answer without a separate network round trip per file.
+  copy_failed <- !fs::file_exists(local_paths)
+  if (any(copy_failed)) {
+    cli::cli_abort(
+      c(
+        "Some {.arg files} could not be staged.",
+        "x" = "Missing or inaccessible: {.path {file_paths[copy_failed]}}"
+      ),
+      class = "sharefs_error_missing_files"
+    )
+  }
 
   # Build the result
   local_info <- fs::file_info(local_paths)

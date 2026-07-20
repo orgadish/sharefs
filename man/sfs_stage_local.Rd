@@ -7,8 +7,8 @@
 sfs_stage_local(files, dir = NULL)
 }
 \arguments{
-\item{files}{A character vector of existing file paths to stage, or
-the output of \code{\link[=sfs_dir_info]{sfs_dir_info()}}.}
+\item{files}{A character vector of file paths to stage, or the
+output of \code{\link[=sfs_dir_info]{sfs_dir_info()}}.}
 
 \item{dir}{The local directory to copy files into. If \code{NULL} (default),
 a new temporary directory is created. If an existing directory is
