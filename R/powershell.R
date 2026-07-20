@@ -80,7 +80,7 @@ escape_ps_string <- function(x) {
   gsub("'", "''", x, fixed = TRUE)
 }
 
-run_powershell <- function(script_lines) {
+run_powershell <- function(script_lines, timeout = 120) {
   exe <- find_powershell()
   if (!nzchar(exe)) {
     cli::cli_abort(
@@ -93,7 +93,7 @@ run_powershell <- function(script_lines) {
   # OEM/ANSI codepage when redirected, mangling non-ASCII output.
   # PowerShell 7+ already defaults to UTF-8, so this is a no-op there.
   script <- paste(
-    "$OutputEncoding = [System.Text.Encoding]::UTF8",
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
     paste(script_lines, collapse = "\n"),
     sep = "\n"
   )
@@ -107,8 +107,7 @@ run_powershell <- function(script_lines) {
     cli::cli_abort(
       c(
         "The PowerShell command for this call is too long to run.",
-        "i" = "Windows limits a process's total command line length --
-					try calling this with fewer or shorter paths at once."
+        "i" = "Windows limits a process's total command line length -- try calling this with fewer or shorter paths at once."
       ),
       class = "sharefs_error_command_too_long"
     )
@@ -130,7 +129,7 @@ run_powershell <- function(script_lines) {
     run_process(
       command = exe,
       args = args,
-      timeout = 30,
+      timeout = timeout,
       encoding = "UTF-8"
     ),
     error = function(e) {
@@ -148,6 +147,16 @@ run_powershell <- function(script_lines) {
   status <- as.integer(res$status)
   if (is.na(status)) {
     status <- 16L
+  }
+
+  if (isTRUE(res$timeout)) {
+    cli::cli_abort(
+      c(
+        "PowerShell did not finish within {timeout} second{?s}.",
+        "i" = "A large or deeply nested directory tree can legitimately take longer than that over a real network share -- pass a higher {.arg timeout} rather than assume something is broken."
+      ),
+      class = "sharefs_error_powershell_timeout"
+    )
   }
 
   if (status != 0L) {
@@ -178,8 +187,7 @@ run_powershell <- function(script_lines) {
     cli::cli_warn(
       c(
         "PowerShell reported non-fatal warnings while listing.",
-        "i" = "The listing still completed; this may mean some items
-					(e.g. a permission-denied subfolder) were skipped.",
+        "i" = "The listing still completed; this may mean some items (e.g. a permission-denied subfolder) were skipped.",
         "x" = "{partial_stderr}"
       ),
       class = "sharefs_warning_powershell_partial"

@@ -28,11 +28,18 @@
 #' @param invert If `TRUE` return files which do *not* match
 #' @param fail Should the call fail (the default) or warn if a file
 #'   cannot be accessed.
+#' @param timeout Maximum time in seconds to let the PowerShell listing
+#'   run before killing it and erroring. Default `120`. A deeply nested
+#'   or very large directory tree (thousands of files, or a heavily
+#'   branched structure) can legitimately take longer than that over a
+#'   real network share -- if you hit `sharefs_error_powershell_failed`
+#'   or a timeout-related error on a large tree, raise this rather than
+#'   assume something is broken.
 #' @param ... Passed to [grepl()] (e.g. `ignore.case = TRUE`).
 #'
-#' @return A data.frame with columns `path`, `type`, `size`,
-#'   `modification_time`, `access_time`, `birth_time` (or `tibble`
-#'   if installed).
+#' @return A tibble (or a data.frame, if the 'tibble' package isn't
+#'   installed) with columns `path`, `type`, `size`,
+#'   `modification_time`, `access_time`, `birth_time`.
 #'
 #' @seealso [sfs_powershell_available()] which checks if Powershell is
 #'    available and accessible.
@@ -45,7 +52,7 @@
 #' }
 sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
                          regexp = NULL, glob = NULL, invert = FALSE,
-                         fail = TRUE, ...) {
+                         fail = TRUE, timeout = 120, ...) {
   # Argument validation
   # unique() first, fs::as_fs_path() after: unique() doesn't preserve
   # fs_path's class, so converting first would lose it.
@@ -86,21 +93,15 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
     cli::cli_abort(
       c(
         "PowerShell is not available on this device.",
-        "i" = "Use {.fn fs::dir_info} instead -- it accepts the same
-					{.arg type}/{.arg regexp}/{.arg glob}/{.arg invert}
-					filtering natively, with a superset of this function's
-					columns.",
-        "i" = "If you've just made PowerShell available (e.g. an
-					AppLocker/WDAC exception), just try again --
-					{.fn sfs_powershell_available} always rechecks after a
-					{.val FALSE} result."
+        "i" = "Use {.fn fs::dir_info} instead -- it accepts the same {.arg type}/{.arg regexp}/{.arg glob}/{.arg invert} filtering natively, with a superset of this function's columns.",
+        "i" = "If you've just made PowerShell available (e.g. an AppLocker/WDAC exception), just try again -- {.fn sfs_powershell_available} always rechecks after a {.val FALSE} result."
       ),
       class = "sharefs_error_powershell_unavailable"
     )
   }
 
   info <- retry_on_error(
-    function() dir_info_powershell(path, all = all, recurse = recurse),
+    function() dir_info_powershell(path, all = all, recurse = recurse, timeout = timeout),
     retries = 5,
     retryable = function(e) !is_permission_error(e)
   )
@@ -127,10 +128,11 @@ sfs_dir_info <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
 #' }
 sfs_dir_ls <- function(path = ".", all = FALSE, recurse = FALSE, type = "any",
                        regexp = NULL, glob = NULL, invert = FALSE,
-                       fail = TRUE, ...) {
+                       fail = TRUE, timeout = 120, ...) {
   paths <- sfs_dir_info(
     path = path, all = all, recurse = recurse, type = type,
-    regexp = regexp, glob = glob, invert = invert, fail = fail, ...
+    regexp = regexp, glob = glob, invert = invert, fail = fail,
+    timeout = timeout, ...
   )$path
 
   stats::setNames(paths, paths)

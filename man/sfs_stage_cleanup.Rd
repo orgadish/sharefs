@@ -7,15 +7,17 @@
 sfs_stage_cleanup(staged)
 }
 \arguments{
-\item{staged}{The data.frame (or tibble) returned by \code{\link[=sfs_stage_local]{sfs_stage_local()}}.}
+\item{staged}{The \code{data.frame} (or \code{tibble}) returned by \code{\link[=sfs_stage_local]{sfs_stage_local()}}.}
 }
 \value{
 \code{TRUE} (invisibly).
 }
 \description{
-Removes exactly the files \code{sfs_stage_local()} staged. If it also
-created the staging directory itself (rather than being given an
-existing one via \code{dir}), that directory is removed too.
+Removes exactly the files \code{sfs_stage_local()} staged, and any
+subdirectories it created to mirror their source structure that are
+now empty. If it also created the staging directory itself (rather
+than being given an existing one via \code{dir}), that directory is
+removed too.
 }
 \examples{
 if (sfs_robocopy_available()) {

@@ -97,8 +97,7 @@ sfs_robocopy <- function(source, destination, ...,
     cli::cli_abort(
       c(
         "{.code robocopy} was not found on the {.envvar PATH}.",
-        "i" = "It ships with Windows by default; if it's genuinely
-					missing, this is likely a minimal or locked-down install."
+        "i" = "It ships with Windows by default; if it's genuinely missing, this is likely a minimal or locked-down install."
       ),
       class = "sharefs_error_robocopy_unavailable"
     )
@@ -170,8 +169,7 @@ sfs_robocopy <- function(source, destination, ...,
   if (error_on_failure && !result$success) {
     cli::cli_abort(
       c(
-        "{.code robocopy} failed copying from {.path {source}} to
-			{.path {destination}}, even after retrying.",
+        "{.code robocopy} failed copying from {.path {source}} to {.path {destination}}, even after retrying.",
         "i" = "Exit code: {status}"
       ),
       class = "sharefs_error_robocopy_failed"

@@ -13,6 +13,7 @@ sfs_dir_info(
   glob = NULL,
   invert = FALSE,
   fail = TRUE,
+  timeout = 120,
   ...
 )
 }
@@ -39,12 +40,20 @@ to \code{\link[=grep]{grep()}} to filter paths.}
 \item{fail}{Should the call fail (the default) or warn if a file
 cannot be accessed.}
 
+\item{timeout}{Maximum time in seconds to let the PowerShell listing
+run before killing it and erroring. Default \code{120}. A deeply nested
+or very large directory tree (thousands of files, or a heavily
+branched structure) can legitimately take longer than that over a
+real network share -- if you hit \code{sharefs_error_powershell_failed}
+or a timeout-related error on a large tree, raise this rather than
+assume something is broken.}
+
 \item{...}{Passed to \code{\link[=grepl]{grepl()}} (e.g. \code{ignore.case = TRUE}).}
 }
 \value{
-A data.frame with columns \code{path}, \code{type}, \code{size},
-\code{modification_time}, \code{access_time}, \code{birth_time} (or \code{tibble}
-if installed).
+A tibble (or a data.frame, if the 'tibble' package isn't
+installed) with columns \code{path}, \code{type}, \code{size},
+\code{modification_time}, \code{access_time}, \code{birth_time}.
 }
 \description{
 Lists files and metadata in a single network round trip, using

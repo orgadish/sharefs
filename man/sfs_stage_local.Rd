@@ -12,27 +12,21 @@ the output of \code{\link[=sfs_dir_info]{sfs_dir_info()}}.}
 
 \item{dir}{The local directory to copy files into. If \code{NULL} (default),
 a new temporary directory is created. If an existing directory is
-given, \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} will only remove the files it staged
-there, not the directory itself or anything else already in it.}
+given, \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} will only remove the files/subdirectories
+it staged there.}
 }
 \value{
-A data.frame with columns \code{path}, \code{local_path}, \code{size}, and
+A \code{data.frame} with columns \code{path}, \code{local_path}, \code{size}, and
 \code{modification_time} (or \code{tibble} if installed). The staging directory
 is attached as the \code{"sharefs_stage_dir"} attribute, so that the whole data
 frame can be passed to \code{\link[=sfs_stage_cleanup]{sfs_stage_cleanup()}} for cleanup.
 }
 \description{
-Copies \code{files} to a local directory using \code{robocopy} (multi-threaded,
-grouped by source directory so each directory is one call). Reading
-many small files locally is typically much faster than reading them
-over a network share. Errors if \code{robocopy} is unavailable or fails --
-no fallback, since \code{fs::file_copy()} doesn't preserve timestamps the
-way \code{robocopy} does.
-
-\code{files} can be a plain path vector or the output of \code{\link[=sfs_dir_info]{sfs_dir_info()}}
--- only \code{path} is used as the copy source. The result's
-\code{size}/\code{modification_time} are re-derived from the staged copies
-themselves, not carried through from any prior listing.
+Copies \code{files} to a local directory using \code{robocopy}, since reading many
+small files locally is typically much faster than reading them
+over a network share. The entire source directory structure is preserved,
+and \code{robocopy} is run multi-threaded, grouped by source directory so
+each directory is one call.
 }
 \examples{
 if (sfs_robocopy_available()) {

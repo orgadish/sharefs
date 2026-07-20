@@ -301,7 +301,7 @@ test_that("run_powershell() prepends a UTF-8 output-encoding preamble", {
 
   script_arg <- captured[length(captured)]
   expect_true(grepl(
-    "$OutputEncoding = [System.Text.Encoding]::UTF8",
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
     script_arg,
     fixed = TRUE
   ))
@@ -367,6 +367,41 @@ test_that("run_powershell() passes a timeout to processx::run() so a hung call c
   )
 
   expect_true(is.numeric(captured_timeout) && captured_timeout > 0)
+})
+
+test_that("run_powershell() forwards a caller-supplied timeout rather than always using its default", {
+  captured_timeout <- NULL
+
+  with_mocked_bindings(
+    find_powershell = function() c(powershell = "/fake/powershell"),
+    run_process = function(command, args, ..., timeout) {
+      captured_timeout <<- timeout
+      list(status = 0L, stdout = "output", stderr = "")
+    },
+    code = run_powershell("some-command", timeout = 7)
+  )
+
+  expect_equal(captured_timeout, 7)
+})
+
+test_that("run_powershell() gives a clear, specific error when processx reports a timeout", {
+  # A large or deeply nested tree over a real network share can
+  # legitimately exceed the timeout -- this must be distinguishable
+  # from a generic failure (e.g. via res$status) so the person can
+  # actually tell what happened and knows to raise timeout, rather
+  # than seeing a confusing "status N, empty output" message.
+  with_mocked_bindings(
+    find_powershell = function() c(powershell = "/fake/powershell"),
+    run_process = function(...) {
+      list(status = NA_integer_, stdout = "", stderr = "", timeout = TRUE)
+    },
+    code = {
+      expect_error(
+        run_powershell("some-command", timeout = 5),
+        class = "sharefs_error_powershell_timeout"
+      )
+    }
+  )
 })
 
 test_that("run_powershell() surfaces stderr containing literal braces without erroring", {

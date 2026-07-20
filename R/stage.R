@@ -1,26 +1,20 @@
 #' Copy files to local disk before reading them
 #'
 #' @description
-#' Copies `files` to a local directory using `robocopy` (multi-threaded,
-#' grouped by source directory so each directory is one call). Reading
-#' many small files locally is typically much faster than reading them
-#' over a network share. Errors if `robocopy` is unavailable or fails --
-#' no fallback, since `fs::file_copy()` doesn't preserve timestamps the
-#' way `robocopy` does.
-#'
-#' `files` can be a plain path vector or the output of [sfs_dir_info()]
-#' -- only `path` is used as the copy source. The result's
-#' `size`/`modification_time` are re-derived from the staged copies
-#' themselves, not carried through from any prior listing.
+#' Copies `files` to a local directory using `robocopy`, since reading many
+#' small files locally is typically much faster than reading them
+#' over a network share. The entire source directory structure is preserved,
+#' and `robocopy` is run multi-threaded, grouped by source directory so 
+#' each directory is one call. 
 #'
 #' @param files A character vector of existing file paths to stage, or
 #'   the output of [sfs_dir_info()].
 #' @param dir The local directory to copy files into. If `NULL` (default),
 #'   a new temporary directory is created. If an existing directory is
-#'   given, [sfs_stage_cleanup()] will only remove the files it staged
-#'   there, not the directory itself or anything else already in it.
+#'   given, [sfs_stage_cleanup()] will only remove the files/subdirectories 
+#'   it staged there.
 #'
-#' @return A data.frame with columns `path`, `local_path`, `size`, and
+#' @return A `data.frame` with columns `path`, `local_path`, `size`, and
 #'   `modification_time` (or `tibble` if installed). The staging directory
 #'   is attached as the `"sharefs_stage_dir"` attribute, so that the whole data
 #'   frame can be passed to [sfs_stage_cleanup()] for cleanup.
@@ -62,14 +56,11 @@ sfs_stage_local <- function(files, dir = NULL) {
     )
   }
 
-  check_no_duplicate_basenames(file_paths)
-
   if (!sfs_robocopy_available()) {
     cli::cli_abort(
       c(
         "{.code robocopy} was not found on the {.envvar PATH}.",
-        "i" = "It ships with Windows by default; if it's genuinely
-					missing, this is likely a minimal or locked-down install."
+        "i" = "It ships with Windows by default; if it's genuinely missing, this is likely a minimal or locked-down install."
       ),
       class = "sharefs_error_robocopy_unavailable"
     )
@@ -108,11 +99,13 @@ sfs_stage_local <- function(files, dir = NULL) {
 #' Remove the files staged by `sfs_stage_local()`
 #'
 #' @description
-#' Removes exactly the files `sfs_stage_local()` staged. If it also
-#' created the staging directory itself (rather than being given an
-#' existing one via `dir`), that directory is removed too.
+#' Removes exactly the files `sfs_stage_local()` staged, and any
+#' subdirectories it created to mirror their source structure that are
+#' now empty. If it also created the staging directory itself (rather
+#' than being given an existing one via `dir`), that directory is
+#' removed too.
 #'
-#' @param staged The data.frame (or tibble) returned by [sfs_stage_local()].
+#' @param staged The `data.frame` (or `tibble`) returned by [sfs_stage_local()].
 #'
 #' @return `TRUE` (invisibly).
 #' @export
@@ -147,43 +140,85 @@ sfs_stage_cleanup <- function(staged) {
 
   if (isTRUE(attr(staged, "sharefs_stage_dir_created"))) {
     unlink(dir, recursive = TRUE)
+  } else {
+    # Files may have been staged into subdirectories mirroring source
+    # structure (see stage_local_robocopy()); remove any that are now
+    # empty, without touching `dir` itself or anything the caller (not
+    # sharefs) put there.
+    for (d in unique(as.character(fs::path_dir(staged$local_path)))) {
+      remove_empty_dirs_up_to(d, dir)
+    }
   }
 
   invisible(TRUE)
 }
 
-check_no_duplicate_basenames <- function(files) {
-  local_paths <- fs::path_file(files)
-  if (anyDuplicated(local_paths)) {
-    cli::cli_abort(
-      c(
-        "Staging would overwrite files: two or more {.arg files} share
-			the same base name.",
-        "i" = "Staging flattens files into one directory; stage files
-			with the same name separately if you need to keep them apart."
-      ),
-      class = "sharefs_error_duplicate_basenames"
-    )
+# Removes `dir` and each empty ancestor above it, stopping at (and
+# never removing) `stop_at`. Bails out entirely, doing nothing, if
+# `dir` isn't actually inside `stop_at`'s tree -- should always be true
+# by construction (every staged local_path is built under the staging
+# dir), but this is a deletion loop, so that isn't trusted blindly.
+remove_empty_dirs_up_to <- function(dir, stop_at) {
+  stop_at_norm <- fs::path_norm(stop_at)
+  dir_norm <- fs::path_norm(dir)
+
+  same_dir <- identical(tolower(as.character(dir_norm)), tolower(as.character(stop_at_norm)))
+  if (!same_dir && !isTRUE(fs::path_has_parent(dir_norm, stop_at_norm))) {
+    return(invisible())
+  }
+
+  stop_at_lower <- tolower(as.character(stop_at_norm))
+  dir <- as.character(dir_norm)
+
+  while (!identical(tolower(dir), stop_at_lower) &&
+         fs::dir_exists(dir) &&
+         length(fs::dir_ls(dir, all = TRUE)) == 0) {
+    parent <- as.character(fs::path_dir(dir))
+    fs::dir_delete(dir)
+    dir <- parent
   }
 }
 
-# One sfs_robocopy() call per source directory, rather than one per file.
-# Windows paths are case-insensitive, so grouping uses a lowercased key
-# -- fs's path functions are purely lexical and don't correct case, so
-# two references to the same directory in different case would
-# otherwise split into separate calls.
-stage_local_robocopy <- function(files, dir) {
-  files <- to_windows_path(files)
-  local_paths <- file.path(dir, fs::path_file(files))
+# Mirrors each file's full source directory structure under `dir`,
+# sanitized into something file.path() can nest as a relative subpath
+# (strip the leading UNC slashes or drive-letter colon, which aren't
+# valid inside a nested relative path).
+stage_relative_dirs <- function(file_dirs) {
+  sanitized <- gsub("^/+", "", as.character(file_dirs))
+  gsub(":", "", sanitized, fixed = TRUE)
+}
 
-  file_dirs <- fs::path_dir(files)
-  group_key <- tolower(file_dirs)
+# One sfs_robocopy() call per source directory, rather than one per
+# file. Windows paths are case-insensitive, so grouping uses a
+# lowercased key -- fs's path functions are purely lexical and don't
+# correct case, so two references to the same directory in different
+# case would otherwise split into separate calls.
+#
+# Local copies land at dir/<source directory's full path>/<basename>,
+# mirroring the source structure exactly rather than flattening
+# everything into `dir` -- two files with the same name in different
+# source directories, which is common in real directory trees, would
+# otherwise collide.
+stage_local_robocopy <- function(files, dir) {
+  abs_files <- fs::path_norm(fs::path_abs(files))
+  file_dirs <- fs::path_dir(abs_files)
+
+  rel_dirs <- stage_relative_dirs(file_dirs)
+  # file.path(dir, "") would leave a trailing slash (double-slashing
+  # once the basename is joined on) -- guards against the (now rare)
+  # case where a sanitized path is empty, e.g. staging a file directly
+  # at a bare drive root.
+  local_dirs <- ifelse(nzchar(rel_dirs), file.path(dir, rel_dirs), dir)
+  local_paths <- file.path(local_dirs, as.character(fs::path_file(abs_files)))
+
+  group_key <- tolower(as.character(file_dirs))
 
   for (key in unique(group_key)) {
     in_group <- group_key == key
     sfs_robocopy(
-      as.character(file_dirs[in_group][1]), dir,
-      files = as.character(fs::path_file(files[in_group]))
+      to_windows_path(as.character(file_dirs[in_group][1])),
+      to_windows_path(local_dirs[in_group][1]),
+      files = as.character(fs::path_file(abs_files[in_group]))
     )
   }
 

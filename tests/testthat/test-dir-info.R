@@ -84,7 +84,7 @@ test_that("sfs_dir_info() deduplicates path before listing, avoiding redundant w
 
   with_mocked_bindings(
     sfs_powershell_available = function() TRUE,
-    dir_info_powershell = function(path, all, recurse) {
+    dir_info_powershell = function(path, all, recurse, timeout) {
       received_path <<- path
       empty_dir_info()
     },
@@ -95,6 +95,36 @@ test_that("sfs_dir_info() deduplicates path before listing, avoiding redundant w
   )
 
   expect_length(received_path, 1)
+})
+
+test_that("sfs_dir_info() forwards timeout to dir_info_powershell(), defaulting to 120", {
+  received_timeout <- NULL
+
+  with_mocked_bindings(
+    sfs_powershell_available = function() TRUE,
+    dir_info_powershell = function(path, all, recurse, timeout) {
+      received_timeout <<- timeout
+      empty_dir_info()
+    },
+    code = {
+      dir <- withr::local_tempdir()
+      sfs_dir_info(dir)
+    }
+  )
+  expect_equal(received_timeout, 120)
+
+  with_mocked_bindings(
+    sfs_powershell_available = function() TRUE,
+    dir_info_powershell = function(path, all, recurse, timeout) {
+      received_timeout <<- timeout
+      empty_dir_info()
+    },
+    code = {
+      dir <- withr::local_tempdir()
+      sfs_dir_info(dir, timeout = 300)
+    }
+  )
+  expect_equal(received_timeout, 300)
 })
 
 test_that("sfs_dir_info() defaults path to the current working directory", {
@@ -288,7 +318,7 @@ test_that("sfs_dir_info() retries a transient PowerShell failure and succeeds wi
 
   with_mocked_bindings(
     sfs_powershell_available = function() TRUE,
-    dir_info_powershell = function(path, all, recurse) {
+    dir_info_powershell = function(path, all, recurse, timeout) {
       call_count <<- call_count + 1
       if (call_count < 3) stop("simulated transient failure")
       tibble::tibble(
@@ -457,7 +487,7 @@ test_that("dir_info_powershell() normalizes paths via fs::path_abs(), not base n
   real_path_abs <- fs::path_abs
 
   with_mocked_bindings(
-    run_powershell = function(script_lines) character(0),
+    run_powershell = function(script_lines, timeout) character(0),
     code = {
       with_mocked_bindings(
         path_abs = function(p) {

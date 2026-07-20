@@ -20,9 +20,9 @@ get_backoff_wait <- function(attempt,
                              backoff_factor = 3,
                              jitter = TRUE) {
   (
-    initial_wait_seconds
+    initial_wait_seconds 
     * backoff_factor^(attempt - 1)
-      * (if (jitter) stats::runif(1, 0.9, 1.1) else 1)
+    * (if (jitter) stats::runif(1, 0.9, 1.1) else 1)
   )
 }
 

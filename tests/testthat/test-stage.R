@@ -32,18 +32,24 @@ test_that("sfs_stage_local() requires existing files", {
   )
 })
 
-test_that("sfs_stage_local() errors on duplicate basenames", {
+test_that("sfs_stage_local() supports duplicate basenames in different source directories, on a real Windows machine", {
+  skip_if_not(sfs_robocopy_available())
+
   src1 <- withr::local_tempdir()
   src2 <- withr::local_tempdir()
   f1 <- file.path(src1, "a.txt")
   f2 <- file.path(src2, "a.txt")
-  file.create(f1)
-  file.create(f2)
+  writeLines("one", f1)
+  writeLines("two", f2)
 
-  expect_error(
-    sfs_stage_local(c(f1, f2)),
-    class = "sharefs_error_duplicate_basenames"
-  )
+  staged <- sfs_stage_local(c(f1, f2))
+
+  expect_equal(length(unique(staged$local_path)), 2)
+  expect_true(all(file.exists(staged$local_path)))
+  expect_equal(readLines(staged$local_path[staged$path == f1]), "one")
+  expect_equal(readLines(staged$local_path[staged$path == f2]), "two")
+
+  sfs_stage_cleanup(staged)
 })
 
 test_that("sfs_stage_local() errors clearly when robocopy is unavailable", {
@@ -295,13 +301,18 @@ test_that("sfs_stage_local() creates the staging dir if it doesn't exist", {
 
   src <- withr::local_tempdir()
   f <- file.path(src, "a.txt")
-  file.create(f)
+  writeLines("hello", f)
 
   target <- file.path(withr::local_tempdir(), "nested", "stage")
   staged <- sfs_stage_local(f, dir = target)
 
   expect_true(dir.exists(target))
-  expect_equal(staged$local_path, file.path(target, "a.txt"))
+  # Mirrors the source structure exactly, even for a single file, so
+  # the staged path isn't simply target/a.txt -- check it landed
+  # somewhere under target instead, with the right name and content.
+  expect_true(startsWith(staged$local_path, target))
+  expect_equal(basename(staged$local_path), "a.txt")
+  expect_equal(readLines(staged$local_path), "hello")
 })
 
 test_that("sfs_stage_cleanup() only removes the files it staged, not a pre-existing directory or its other contents", {
@@ -340,6 +351,41 @@ test_that("sfs_stage_cleanup() removes the staging dir if sharefs created it, ev
   sfs_stage_cleanup(staged)
 
   expect_false(dir.exists(target))
+})
+
+test_that("sfs_stage_cleanup() removes now-empty subdirectories created to mirror source structure, without touching the pre-existing target dir", {
+  skip_if_not(sfs_robocopy_available())
+
+  # Two distinct source directories -> staging preserves that structure
+  # as nested subdirectories under the (pre-existing, caller-supplied)
+  # target, rather than flattening -- cleanup must remove those now-
+  # empty subdirectories too, not just the files, while still leaving
+  # the target dir itself (and anything unrelated in it) alone.
+  dir1 <- withr::local_tempdir()
+  dir2 <- withr::local_tempdir()
+  f1 <- file.path(dir1, "a.txt")
+  f2 <- file.path(dir2, "a.txt") # same basename, different source dir
+  writeLines("one", f1)
+  writeLines("two", f2)
+
+  existing_dir <- withr::local_tempdir()
+  unrelated_file <- file.path(existing_dir, "unrelated.txt")
+  writeLines("please don't delete me", unrelated_file)
+
+  staged <- sfs_stage_local(c(f1, f2), dir = existing_dir)
+  expect_equal(length(unique(staged$local_path)), 2)
+
+  staged_subdirs <- unique(dirname(staged$local_path))
+  # This staging scenario is only a meaningful test of the new cleanup
+  # behavior if it actually created subdirectories to mirror structure.
+  expect_true(any(staged_subdirs != existing_dir))
+
+  sfs_stage_cleanup(staged)
+
+  expect_false(any(file.exists(staged$local_path)))
+  expect_false(any(dir.exists(setdiff(staged_subdirs, existing_dir))))
+  expect_true(dir.exists(existing_dir))
+  expect_true(file.exists(unrelated_file))
 })
 
 test_that("sfs_stage_cleanup() requires a staged tibble", {
